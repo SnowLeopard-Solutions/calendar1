@@ -1,0 +1,2200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Calendar Generator — v1.7.1</title>
+  <!--
+    ============================================================
+    CALENDAR GENERATOR
+    Version:  1.7.0
+    Released: 2026-05-21
+      Patch:    1.4.1 — Fix circular dependency (EventManager/DatePicker);
+               move draft state out of EventManager into DatePicker;
+               fix module initialisation order.
+    Target:   Chrome desktop + mobile browsers
+
+    CHANGELOG:
+      1.4.0 — Mini calendar date picker for event selection;
+               default photo zoom = cover (fills frame, no gaps);
+               pan by dragging directly on preview;
+               responsive mobile layout (bottom drawer, scaled preview,
+               touch-friendly controls).
+      1.3.0 — Multi-day events; click-to-upload on preview;
+               Google Photos hidden; built-in UK holidays;
+               @page print preset; pre-print checklist modal.
+      1.2.0 — Print fix; default photo fit; Show Today off.
+      1.1.0 — Branding; dark/light theme; pan/zoom; quality warnings.
+      1.0.0 — Initial release.
+
+    MODULES:
+      CONFIG, Security, CalendarEngine, EventManager,
+      HolidayLoader, UKHolidays, PhotoManager, FontManager,
+      BrandingManager, GooglePhotosStub, QualityChecker,
+      DatePicker, ImportExport, PrintHandler, Toast,
+      PanZoom, UIRenderer, MobileUI, App
+    ============================================================
+  -->
+  <style>
+    /* ============================================================
+       CALENDAR GENERATOR v1.7.0 — Simplified UI
+       Design goal: a 9-year-old can use it without help.
+       - Accordion sidebar (one section open at a time)
+       - 3-control toolbar (start month, year, count)
+       - Single "More" button hides power tools
+       - Guided first-use hint on photo placeholder
+       - Friendly language throughout
+    ============================================================ */
+
+    @page { size: A4 portrait; margin: 0; }
+
+    /* ── Themes ── */
+    :root {
+      --bg:         #0f0f0f;
+      --surface:    #1a1a1a;
+      --surface2:   #242424;
+      --border:     #2e2e2e;
+      --accent:     #c8a96e;
+      --accent2:    #e8c98e;
+      --text:       #e8e4dc;
+      --text-muted: #777;
+      --danger:     #c0392b;
+      --success:    #27ae60;
+      --warning:    #e67e22;
+      --radius:     8px;
+      --radius-lg:  14px;
+      --shadow:     0 6px 32px rgba(0,0,0,0.55);
+      --font-ui:    'Georgia','Times New Roman',serif;
+      --font-cal:   'Georgia','Times New Roman',serif;
+    }
+    [data-theme="light"] {
+      --bg:         #f2ede6;
+      --surface:    #ffffff;
+      --surface2:   #f7f3ee;
+      --border:     #ddd6cc;
+      --accent:     #8b6914;
+      --accent2:    #a07820;
+      --text:       #1a1a1a;
+      --text-muted: #777;
+      --shadow:     0 4px 20px rgba(0,0,0,0.10);
+    }
+
+    html, body { height: 100%; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--font-ui); height: 100%;
+      display: flex; flex-direction: column;
+      transition: background 0.3s, color 0.3s;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────────────── */
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 10px 18px; display: flex; align-items: center;
+      justify-content: space-between; gap: 10px; flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .branding { display: flex; align-items: center; gap: 10px; }
+    #brandLogo { height: 34px; width: auto; object-fit: contain; display: none; border-radius: 4px; }
+    #brandLogo.visible { display: block; }
+    #brandTitle {
+      font-size: 1.15rem; letter-spacing: 0.1em; color: var(--accent);
+      text-transform: uppercase; font-weight: normal; cursor: pointer;
+      border-bottom: 1px dashed transparent; transition: border-color 0.2s;
+    }
+    #brandTitle:hover { border-bottom-color: var(--accent); }
+    .brand-sub { font-size: 0.6rem; color: var(--text-muted); letter-spacing: 0.06em; margin-top: 1px; }
+
+    .header-right { display: flex; align-items: center; gap: 8px; }
+
+    /* More button — hides power tools in a dropdown */
+    .more-menu-wrap { position: relative; }
+    .more-menu {
+      display: none;
+      position: absolute; top: calc(100% + 6px); right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 8px;
+      box-shadow: var(--shadow); z-index: 500;
+      flex-direction: column; gap: 6px; min-width: 180px;
+    }
+    .more-menu.open { display: flex; }
+    .more-menu button { justify-content: flex-start; width: 100%; text-align: left; }
+
+    /* ── BASE BUTTON ─────────────────────────────────────────────── */
+    button {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); padding: 7px 14px; border-radius: var(--radius);
+      font-family: var(--font-ui); font-size: 0.8rem;
+      cursor: pointer; transition: all 0.18s; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    button:hover { border-color: var(--accent); color: var(--accent); background: var(--surface); }
+    button.primary {
+      background: var(--accent); border-color: var(--accent);
+      color: #111; font-weight: bold; font-size: 0.85rem;
+    }
+    button.primary:hover { background: var(--accent2); border-color: var(--accent2); color: #111; }
+    button.ghost { background: transparent; border-color: transparent; color: var(--text-muted); }
+    button.ghost:hover { border-color: var(--border); color: var(--text); background: var(--surface2); }
+    button.danger { border-color: var(--danger); color: var(--danger); background: transparent; }
+    button.danger:hover { background: var(--danger); color: #fff; }
+    button.uk-btn { border-color: #1d4289; color: #4a80d4; background: transparent; }
+    button.uk-btn:hover { background: #1d4289; color: #fff; }
+    button.theme-btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; color: var(--text-muted); font-size: 0.75rem;
+    }
+
+    .btn-print {
+      background: var(--accent); border: 2px solid var(--accent);
+      color: #111; padding: 8px 20px; border-radius: var(--radius);
+      font-family: var(--font-ui); font-size: 0.88rem; font-weight: bold;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-print:hover { background: var(--accent2); border-color: var(--accent2); }
+
+    select, input[type="text"] {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: 6px 10px; border-radius: var(--radius);
+      font-family: var(--font-ui); font-size: 0.82rem; outline: none;
+      transition: border-color 0.2s;
+    }
+    select:focus, input:focus { border-color: var(--accent); }
+    input[type="date"] {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: 6px 8px; border-radius: var(--radius);
+      font-family: var(--font-ui); font-size: 0.78rem; outline: none;
+    }
+    textarea {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: 8px; border-radius: var(--radius);
+      font-family: var(--font-ui); font-size: 0.8rem;
+      resize: vertical; outline: none; width: 100%;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { border-color: var(--accent); }
+
+    /* ── TOOLBAR ─────────────────────────────────────────────────── */
+    .toolbar {
+      background: var(--surface2); border-bottom: 1px solid var(--border);
+      padding: 8px 18px; display: flex; align-items: center;
+      gap: 8px; flex-shrink: 0; flex-wrap: wrap;
+      transition: background 0.3s;
+    }
+    .toolbar-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .range-pill {
+      background: var(--surface); border: 1px solid var(--accent);
+      color: var(--accent); padding: 5px 12px; border-radius: 20px;
+      font-size: 0.76rem; letter-spacing: 0.03em; white-space: nowrap;
+    }
+    .toolbar-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+    /* ── MAIN LAYOUT ─────────────────────────────────────────────── */
+    main { display: flex; flex: 1; min-height: 0; overflow: hidden; height: 0; }
+
+    /* ── SIDEBAR ─────────────────────────────────────────────────── */
+    .sidebar {
+      width: 272px; min-width: 240px; background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+      transition: background 0.3s; flex-shrink: 0;
+      position: sticky; top: 0; height: 100%; align-self: flex-start;
+    }
+    .sidebar-inner { flex: 1; overflow-y: auto; height: 0; }
+
+    /* ── ACCORDION ───────────────────────────────────────────────── */
+    .accordion { border-bottom: 1px solid var(--border); }
+
+    .accordion-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 16px; cursor: pointer; user-select: none;
+      transition: background 0.15s;
+    }
+    .accordion-header:hover { background: var(--surface2); }
+
+    .accordion-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.78rem; font-weight: normal; color: var(--text);
+      letter-spacing: 0.02em;
+    }
+    .accordion-title .acc-icon { font-size: 1rem; }
+    .accordion-title .acc-badge {
+      background: var(--accent); color: #111; border-radius: 10px;
+      padding: 1px 6px; font-size: 0.6rem; font-weight: bold;
+    }
+
+    .accordion-chevron {
+      font-size: 0.65rem; color: var(--text-muted);
+      transition: transform 0.2s;
+    }
+    .accordion.open .accordion-chevron { transform: rotate(180deg); }
+
+    .accordion-body {
+      display: none; padding: 0 16px 14px;
+    }
+    .accordion.open .accordion-body { display: flex; flex-direction: column; gap: 10px; }
+
+    /* First accordion (photo) open by default */
+    .accordion.open-default .accordion-body { display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── PHOTO SLOT ──────────────────────────────────────────────── */
+    .photo-slot-wrap {
+      border: 2px dashed var(--border); border-radius: var(--radius-lg);
+      overflow: hidden; transition: border-color 0.2s; background: var(--surface2);
+    }
+    .photo-slot-wrap.has-image { border-style: solid; border-color: var(--success); }
+    .photo-slot-wrap.clickable { cursor: pointer; }
+    .photo-slot-wrap.clickable:hover { border-color: var(--accent); }
+    .photo-slot-wrap input[type="file"] { display: none; }
+
+    .slot-label { font-size: 0.65rem; color: var(--text-muted); padding: 8px 10px 0; }
+
+    .thumb-wrap {
+      width: 100%; height: 72px; overflow: hidden; position: relative;
+      background: var(--surface2); cursor: grab;
+    }
+    .thumb-wrap:active { cursor: grabbing; }
+    .thumb-wrap img { position: absolute; top:0; left:0; transform-origin: top left; pointer-events: none; max-width: none; }
+
+    .slot-controls {
+      display: flex; gap: 4px; padding: 6px 8px; flex-wrap: wrap;
+      border-top: 1px solid var(--border);
+    }
+    .slot-controls button { padding: 3px 8px; font-size: 0.62rem; border-radius: 6px; gap: 3px; }
+
+    .upload-prompt {
+      padding: 20px 12px; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .upload-prompt .up-icon { font-size: 2rem; opacity: 0.5; }
+    .upload-prompt .up-text { font-size: 0.8rem; color: var(--text-muted); }
+    .upload-prompt button { font-size: 0.78rem; padding: 7px 16px; }
+
+    /* First-use pulse animation on upload button */
+    @keyframes pulse-gold {
+      0%,100% { box-shadow: 0 0 0 0 rgba(200,169,110,0); }
+      50%      { box-shadow: 0 0 0 8px rgba(200,169,110,0.25); }
+    }
+    .pulse-hint { animation: pulse-gold 2s infinite; }
+
+    .quality-warn { font-size: 0.62rem; padding: 4px 8px; border-radius: 6px; margin: 0 8px 8px; display: none; }
+    .quality-warn.warn-amber { background: rgba(230,126,34,0.12); color: var(--warning); border: 1px solid rgba(230,126,34,0.25); display: block; }
+    .quality-warn.warn-red   { background: rgba(192,57,43,0.12);  color: var(--danger);  border: 1px solid rgba(192,57,43,0.25);  display: block; }
+
+    /* pan-lock */
+    .pan-lock-btn {
+      font-size: 0.6rem; padding: 2px 7px; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+    }
+    .pan-lock-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .pan-lock-btn.unlocked { border-color: var(--warning); color: var(--warning); background: rgba(230,126,34,0.08); }
+
+    /* ── LAYOUT TEMPLATES ────────────────────────────────────────── */
+    .template-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+    .template-option {
+      border: 2px solid var(--border); border-radius: var(--radius);
+      padding: 8px 4px; cursor: pointer; transition: all 0.15s;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    /* Visual diagram replacing text icons */
+    .tpl-diagram { width: 36px; height: 26px; display: flex; gap: 2px; }
+    .tpl-diagram .tpl-main { background: var(--accent); opacity: 0.7; border-radius: 2px; }
+    .tpl-diagram .tpl-sides { display: flex; flex-direction: column; gap: 2px; flex: 0 0 12px; }
+    .tpl-diagram .tpl-side  { background: var(--accent); opacity: 0.45; border-radius: 1px; flex: 1; }
+    .template-option .t-label { font-size: 0.58rem; color: var(--text-muted); }
+    .template-option:hover, .template-option.selected {
+      border-color: var(--accent); background: rgba(200,169,110,0.08);
+    }
+
+    /* ── MONTH LIST ──────────────────────────────────────────────── */
+    .month-list { display: flex; flex-direction: column; gap: 3px; }
+    .month-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 10px; border-radius: var(--radius); cursor: pointer;
+      border: 1px solid transparent; transition: all 0.15s; font-size: 0.82rem;
+    }
+    .month-item:hover { background: var(--surface2); border-color: var(--border); }
+    .month-item.active { border-color: var(--accent); background: var(--surface2); color: var(--accent); }
+    .month-item .photo-dot { color: var(--success); font-size: 0.65rem; }
+
+    /* ── EVENTS ──────────────────────────────────────────────────── */
+    .event-item {
+      display: flex; align-items: flex-start; gap: 6px;
+      padding: 7px 9px; background: var(--surface2); border-radius: var(--radius);
+      font-size: 0.76rem; border: 1px solid var(--border); margin-bottom: 4px;
+    }
+    .event-item .ev-info { flex: 1; }
+    .event-item .ev-date { color: var(--accent); font-size: 0.64rem; margin-bottom: 1px; }
+    .event-item button { padding: 2px 6px; font-size: 0.6rem; }
+
+    /* Date picker display fields */
+    .date-field { display: flex; flex-direction: column; gap: 3px; }
+    .date-field label { font-size: 0.64rem; color: var(--text-muted); }
+    .date-field-input {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: 6px 9px; border-radius: var(--radius);
+      font-family: var(--font-ui); font-size: 0.78rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 4px; transition: border-color 0.2s; user-select: none;
+    }
+    .date-field-input:hover { border-color: var(--accent); }
+    .date-field-input.empty { color: var(--text-muted); font-style: italic; font-size: 0.72rem; }
+    .date-field-input.has-date { color: var(--text); }
+    .date-field-input .cal-icon { font-size: 0.8rem; opacity: 0.5; }
+    .date-range-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .checkbox-row { display: flex; align-items: center; gap: 7px; font-size: 0.78rem; }
+    .checkbox-row input[type="checkbox"] { accent-color: var(--accent); width:14px; height:14px; cursor:pointer; }
+
+    /* ── DATE PICKER POPUP ───────────────────────────────────────── */
+    .datepicker-backdrop { position: fixed; inset: 0; z-index: 3000; background: transparent; }
+    .datepicker-popup {
+      position: fixed; z-index: 3001;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow);
+      padding: 12px; min-width: 240px; animation: dpIn 0.15s ease;
+    }
+    @keyframes dpIn { from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;} }
+    .dp-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .dp-header button { padding:3px 8px; font-size:0.7rem; }
+    .dp-month-label { font-size:0.82rem; color:var(--accent); letter-spacing:0.04em; }
+    .dp-dow-row { display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:3px; }
+    .dp-dow-cell { text-align:center; font-size:0.58rem; color:var(--text-muted); padding:2px 0; }
+    .dp-days-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+    .dp-day { text-align:center; font-size:0.72rem; padding:6px 2px; border-radius:4px; cursor:pointer; transition:all 0.1s; border:1px solid transparent; }
+    .dp-day:hover { background:var(--surface2); border-color:var(--border); }
+    .dp-day.empty { cursor:default; }
+    .dp-day.today { border-color:var(--border); color:var(--accent); }
+    .dp-day.selected-start,.dp-day.selected-end { background:var(--accent); color:#111; font-weight:bold; }
+    .dp-day.in-range { background:rgba(200,169,110,0.18); }
+    .dp-footer { display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px; border-top:1px solid var(--border); font-size:0.65rem; color:var(--text-muted); }
+    .dp-footer button { padding:3px 8px; font-size:0.65rem; }
+
+    /* ── PREVIEW AREA ────────────────────────────────────────────── */
+    .preview-area {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      padding: 28px 28px 60px; background: var(--bg);
+      display: flex; flex-direction: column; gap: 36px; align-items: center;
+      transition: background 0.3s; height: 100%;
+    }
+
+    /* ── CALENDAR PAGE (A4 fixed px) ─────────────────────────────── */
+    .cal-page {
+      background: #fff; color: #111;
+      width: 794px; height: 1123px;
+      position: relative; overflow: hidden;
+      box-shadow: var(--shadow); border-radius: 3px;
+      page-break-after: always; break-after: page; flex-shrink: 0;
+    }
+    .cal-photo-area {
+      position: absolute; top:0; left:0; right:0; height:480px;
+      background:#e0dcd4; overflow:hidden;
+    }
+    .cal-caption {
+      position: absolute; top:480px; left:0; right:0; height:32px;
+      padding: 0 24px; display:flex; align-items:center; justify-content:center;
+      font-size:0.78rem; font-style:italic; color:#666;
+      background:#f9f7f3; border-top:1px solid #e0dbd0; border-bottom:1px solid #e0dbd0;
+      overflow:hidden;
+    }
+    .cal-grid-area {
+      position:absolute; top:512px; left:0; right:0; bottom:0;
+      padding:14px 22px 16px; display:flex; flex-direction:column; overflow:hidden;
+    }
+
+    /* Photo templates */
+    .cal-photo-area.tmpl-single .pz-container { position:absolute; inset:0; }
+    .cal-photo-area.tmpl-1plus2 .pz-container:nth-child(1){position:absolute;top:0;left:0;width:66.66%;height:100%;}
+    .cal-photo-area.tmpl-1plus2 .pz-container:nth-child(2){position:absolute;top:0;left:66.66%;width:33.34%;height:50%;border-left:3px solid #fff;}
+    .cal-photo-area.tmpl-1plus2 .pz-container:nth-child(3){position:absolute;top:50%;left:66.66%;width:33.34%;height:50%;border-left:3px solid #fff;border-top:2px solid #fff;}
+    .cal-photo-area.tmpl-1plus3 .pz-container:nth-child(1){position:absolute;top:0;left:0;width:66.66%;height:100%;}
+    .cal-photo-area.tmpl-1plus3 .pz-container:nth-child(2){position:absolute;top:0;left:66.66%;width:33.34%;height:33.33%;border-left:3px solid #fff;}
+    .cal-photo-area.tmpl-1plus3 .pz-container:nth-child(3){position:absolute;top:33.33%;left:66.66%;width:33.34%;height:33.33%;border-left:3px solid #fff;border-top:2px solid #fff;}
+    .cal-photo-area.tmpl-1plus3 .pz-container:nth-child(4){position:absolute;top:66.66%;left:66.66%;width:33.34%;height:33.34%;border-left:3px solid #fff;border-top:2px solid #fff;}
+
+    .pz-container { overflow:hidden; cursor:default; position:relative; }
+    .pz-container.pz-unlocked { cursor:grab; }
+    .pz-container.pz-unlocked:active { cursor:grabbing; }
+    .pz-container img { position:absolute;top:0;left:0;transform-origin:top left;pointer-events:none;image-rendering:high-quality;max-width:none; }
+
+    /* Photo placeholder — clickable, first-use guided */
+    .photo-placeholder {
+      position:absolute; inset:0;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:#e8e4dc; color:#bbb; gap:6px; cursor:pointer; transition:background 0.2s;
+    }
+    .photo-placeholder:hover { background:#ddd9d0; }
+    .photo-placeholder .ph-icon { font-size:2rem; opacity:0.4; transition:opacity 0.2s; }
+    .photo-placeholder:hover .ph-icon { opacity:0.7; }
+    .photo-placeholder span { font-size:0.7rem; font-style:italic; }
+    .photo-placeholder .ph-hint { font-size:0.6rem; color:#aaa; }
+
+    /* Calendar grid */
+    .cal-month-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;flex-shrink:0;}
+    .cal-month-name{font-size:1.8rem;letter-spacing:0.07em;text-transform:uppercase;font-weight:normal;color:#111;}
+    .cal-year-label{font-size:0.95rem;color:#999;letter-spacing:0.08em;}
+    .cal-dow-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:3px;flex-shrink:0;}
+    .cal-dow-cell{text-align:center;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:#999;padding:3px 0;border-bottom:1px solid #ddd;}
+    .cal-dates-grid{display:grid;grid-template-columns:repeat(7,1fr);flex:1;border-left:1px solid #e8e4dc;border-top:1px solid #e8e4dc;min-height:0;}
+    .cal-date-cell{border-right:1px solid #e8e4dc;border-bottom:1px solid #e8e4dc;padding:3px 4px;font-size:0.72rem;overflow:hidden;}
+    .cal-date-cell.empty{background:#fafafa;}
+    .cal-date-num{font-size:0.68rem;color:#333;display:inline-block;margin-bottom:1px;}
+    .cal-date-cell.today .cal-date-num{background:#1a1a1a;color:#fff;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:0.6rem;}
+    .cal-event{font-size:0.54rem;line-height:1.3;padding:1px 3px;border-radius:2px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+    .cal-event.holiday{background:#1d4289;color:#fff;}
+    .cal-event.special{background:#7d5a0a;color:#fff;}
+    .cal-event.special-range{background:#9c7320;color:#fff;}
+
+    /* ── TOAST ───────────────────────────────────────────────────── */
+    .toast-container{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:5px;z-index:9999;pointer-events:none;}
+    .toast{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);padding:9px 14px;border-radius:var(--radius);font-size:0.78rem;max-width:290px;animation:toastIn 0.2s ease;pointer-events:all;color:var(--text);}
+    .toast.error{border-left-color:var(--danger);}
+    .toast.success{border-left-color:var(--success);}
+    .toast.warn{border-left-color:var(--warning);}
+    @keyframes toastIn{from{opacity:0;transform:translateX(14px);}to{opacity:1;transform:none;}}
+
+    /* ── MODAL ───────────────────────────────────────────────────── */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:2000;}
+    .modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;max-width:420px;width:90%;box-shadow:var(--shadow);color:var(--text);}
+    .modal h2{font-size:0.95rem;font-weight:normal;color:var(--accent);margin-bottom:12px;}
+    .modal p{font-size:0.8rem;color:var(--text-muted);line-height:1.6;margin-bottom:10px;}
+    .modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}
+    .print-checklist{list-style:none;margin:8px 0;display:flex;flex-direction:column;gap:6px;}
+    .print-checklist li{display:flex;align-items:flex-start;gap:8px;font-size:0.78rem;padding:7px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);line-height:1.4;}
+    .print-checklist .ck-icon{font-size:0.95rem;flex-shrink:0;margin-top:1px;}
+    .print-checklist .ck-auto{color:var(--success);}
+    .print-checklist .ck-manual{color:var(--warning);}
+    .print-checklist strong{display:block;font-size:0.76rem;color:var(--text);}
+    .print-checklist span{font-size:0.7rem;color:var(--text-muted);}
+
+    /* ── MOBILE (≤768px) ─────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      header { padding: 9px 14px; }
+      .header-desktop { display: none !important; }
+      .brand-sub { display: none; }
+      .toolbar { display: none !important; }
+      .sidebar { display: none !important; }
+      main { flex-direction: column; overflow: visible; }
+      .preview-area { padding: 10px 8px 90px; overflow-y: auto; overflow-x: hidden; }
+      .cal-page-wrapper { width: 100%; display: flex; justify-content: center; overflow: hidden; }
+      .cal-page { transform-origin: top center; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
+    }
+
+    /* ── MOBILE DRAWER ───────────────────────────────────────────── */
+    .drawer-backdrop { display:none; position:fixed; inset:0; z-index:900; background:rgba(0,0,0,0.5); }
+    .drawer-backdrop.open { display:block; }
+
+    .drawer {
+      display: none;
+      position: fixed; bottom:0; left:0; right:0; z-index:901;
+      background: var(--surface); border-top: 1px solid var(--border);
+      border-radius: 20px 20px 0 0;
+      height: 88vh; max-height: 88vh;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.34,1.06,0.64,1);
+      flex-direction: column; overflow: hidden;
+    }
+    .drawer.open { transform: translateY(0); }
+
+    .drawer-handle { width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0;cursor:pointer;flex-shrink:0; }
+
+    .drawer-tabs { display:flex; flex-shrink:0; border-bottom:1px solid var(--border); margin-top:8px; }
+    .drawer-tab-btn { flex:1; padding:10px 8px; font-size:0.82rem; font-family:var(--font-ui); background:none; border:none; border-bottom:2px solid transparent; color:var(--text-muted); cursor:pointer; transition:all 0.2s; }
+    .drawer-tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+    .drawer-panel { display:none; flex:1; overflow-y:auto; padding:16px; flex-direction:column; gap:12px; }
+    .drawer-panel.active { display:flex; }
+
+    .drawer-tab { display:none; position:fixed; bottom:0; left:0; right:0; z-index:902; background:var(--surface); border-top:1px solid var(--border); padding:9px 16px 12px; align-items:center; justify-content:space-between; gap:8px; }
+
+    .drawer-section { display:flex; flex-direction:column; gap:7px; }
+    .drawer-section h4 { font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--accent); font-weight:normal; }
+
+    .mobile-row { display:flex; gap:7px; align-items:center; flex-wrap:wrap; }
+    .mobile-row select { flex:1; min-width:80px; font-size:0.82rem; padding:7px 8px; }
+    .mobile-row button { flex-shrink:0; padding:8px 13px; font-size:0.8rem; }
+
+    .mobile-month-list { display:flex; flex-direction:column; gap:4px; max-height:160px; overflow-y:auto; }
+    .mobile-month-item { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-radius:var(--radius); cursor:pointer; border:1px solid var(--border); font-size:0.84rem; background:var(--surface2); transition:all 0.15s; }
+    .mobile-month-item.active { border-color:var(--accent); color:var(--accent); }
+    .mobile-month-item .photo-dot { color:var(--success); }
+
+    .mobile-template-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+    .mobile-template-opt { border:2px solid var(--border); border-radius:var(--radius); padding:9px 4px; cursor:pointer; transition:all 0.15s; display:flex; flex-direction:column; align-items:center; gap:4px; }
+    .mobile-template-opt.selected,.mobile-template-opt:hover { border-color:var(--accent); background:rgba(200,169,110,0.08); }
+
+    .mobile-photo-slot { border:2px dashed var(--border); border-radius:var(--radius-lg); padding:10px; margin-bottom:7px; transition:border-color 0.2s; }
+    .mobile-photo-slot.has-image { border-style:solid; border-color:var(--success); }
+    .mobile-photo-slot input[type="file"] { display:none; }
+    .mobile-photo-slot .slot-lbl { font-size:0.68rem; color:var(--text-muted); margin-bottom:5px; }
+    .mobile-thumb-wrap { width:100%; height:86px; overflow:hidden; position:relative; border-radius:4px; background:var(--surface2); margin-bottom:7px; }
+    .mobile-thumb-wrap img { position:absolute; top:0; left:0; transform-origin:top left; pointer-events:none; max-width:none; }
+    .mobile-slot-controls { display:flex; gap:5px; flex-wrap:wrap; }
+    .mobile-slot-controls button { padding:6px 10px; font-size:0.72rem; }
+    .mobile-upload-prompt { padding:18px 0; text-align:center; font-size:0.8rem; color:var(--text-muted); cursor:pointer; }
+    .mobile-upload-prompt:hover { color:var(--accent); }
+    .mobile-caption { background:var(--surface); border:1px solid var(--border); color:var(--text); padding:8px; border-radius:var(--radius); font-family:var(--font-ui); font-size:0.8rem; resize:vertical; outline:none; min-height:52px; width:100%; }
+    .mobile-caption:focus { border-color:var(--accent); }
+    .mobile-toggle-row { display:flex; align-items:center; justify-content:space-between; padding:6px 0; font-size:0.8rem; }
+    .mobile-toggle-row input[type="checkbox"] { accent-color:var(--accent); width:16px; height:16px; cursor:pointer; }
+    .range-pill-mob { background:var(--surface2); border:1px solid var(--accent); color:var(--accent); padding:5px 10px; border-radius:20px; font-size:0.76rem; white-space:nowrap; }
+
+    @media (max-width: 768px) {
+      .drawer { display:flex; }
+      .drawer-tab { display:flex; }
+      .drawer-backdrop { display:none; }
+    }
+
+    /* ── UTILITIES ───────────────────────────────────────────────── */
+    .hidden { display:none !important; }
+    .flex-gap { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
+    .w100 { width:100%; }
+    .mt8  { margin-top:8px; }
+    .text-muted { color:var(--text-muted); font-size:0.74rem; }
+    ::-webkit-scrollbar { width:4px; height:4px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+    ::-webkit-scrollbar-thumb:hover { background:var(--accent); }
+
+    /* ── PRINT ───────────────────────────────────────────────────── */
+    @media print {
+      /* Force exact colour reproduction including photos and backgrounds */
+      *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
+
+      /* Clean page */
+      html,body{height:auto !important;overflow:visible !important;background:#fff !important;margin:0;padding:0;}
+
+      /* Hide all UI chrome */
+      header,.toolbar,.sidebar,.toast-container,.modal-backdrop,
+      .drawer,.drawer-tab,.drawer-backdrop,.no-print,
+      .slot-controls,.quality-warn,.accordion-header{display:none !important;}
+
+      /* Layout reset — block flow for page breaks */
+      main{display:block;margin:0;padding:0;height:auto !important;overflow:visible !important;}
+      .preview-area{padding:0;display:block;overflow:visible;background:#fff;gap:0;height:auto !important;}
+      .cal-page-wrapper{display:block;width:100%;}
+
+      /* Calendar page — MUST clear transform so mobile scaling doesn't clip */
+      .cal-page{
+        transform:none !important;
+        -webkit-transform:none !important;
+        width:210mm !important;
+        height:297mm !important;
+        min-height:297mm !important;
+        max-height:297mm !important;
+        box-shadow:none !important;
+        border-radius:0 !important;
+        margin:0 !important; padding:0 !important;
+        page-break-after:always;
+        break-after:page;
+        overflow:hidden !important;
+        position:relative !important;
+      }
+
+      /* Photo and grid sections — explicit mm heights */
+      .cal-photo-area{
+        height:126mm !important;
+        min-height:126mm !important;
+      }
+      .cal-caption{
+        top:126mm !important;
+        height:9mm !important;
+        min-height:9mm !important;
+      }
+      .cal-grid-area{
+        top:135mm !important;
+        bottom:0 !important;
+        height:auto !important;
+        overflow:hidden !important;
+      }
+
+      /* Grid cells — ensure they have height */
+      .cal-dates-grid{
+        flex:1 !important;
+        min-height:0 !important;
+      }
+      .cal-date-cell{
+        min-height:20mm !important;
+      }
+
+      /* Hide placeholder UI elements */
+      .photo-placeholder{background:#f5f5f5 !important;cursor:default !important;}
+      .photo-placeholder *{display:none !important;}
+      .pz-container{cursor:default !important;}
+
+      /* Ensure month/year header is visible */
+      .cal-month-header{display:flex !important;}
+      .cal-dow-row{display:grid !important;}
+    }
+  </style>
+</head>
+<body data-theme="dark">
+
+<!-- ============================================================
+     HEADER — Title | Print | More
+============================================================ -->
+<header class="no-print">
+  <div class="branding">
+    <img id="brandLogo" src="" alt="Logo" />
+    <div>
+      <div id="brandTitle" title="Click to rename" onclick="BrandingManager.editTitle()">Calendar Generator</div>
+      <div class="brand-sub">v1.7.1 &mdash; Chrome Print Edition</div>
+    </div>
+  </div>
+
+  <!-- Desktop right side -->
+  <div class="header-right header-desktop">
+    <button class="theme-btn" onclick="BrandingManager.toggleTheme()" id="themeBtn">☀ Light Mode</button>
+    <!-- More menu -->
+    <div class="more-menu-wrap">
+      <button onclick="UI.toggleMoreMenu(event)" id="moreBtn">⚙ More ▾</button>
+      <div class="more-menu" id="moreMenu">
+        <button onclick="BrandingManager.triggerLogoUpload()">🖼 Upload Logo</button>
+        <input type="file" id="logoInput" accept="image/*" class="hidden" onchange="BrandingManager.loadLogo(event)" />
+        <button onclick="App.exportJSON()">↓ Export settings</button>
+        <button onclick="App.triggerImportJSON()">↑ Import settings</button>
+        <input type="file" id="importJSONInput" accept=".json" class="hidden" onchange="App.importJSON(event)" />
+        <button onclick="App.loadHolidays()">🗓 Custom holidays</button>
+        <input type="file" id="importHolidaysInput" accept=".json" class="hidden" onchange="HolidayLoader.import(event)" />
+        <button onclick="App.clearAllPhotos()" class="danger">Clear all photos</button>
+        <button onclick="App.clearAllEvents()" class="danger">Clear all events</button>
+        <button onclick="BrandingManager.removeLogo()" class="danger">Remove logo</button>
+      </div>
+    </div>
+    <button class="btn-print" onclick="PrintHandler.print()">⎙ Print Calendar</button>
+  </div>
+
+  <!-- Mobile: just print -->
+  <button class="btn-print mobile-only" onclick="PrintHandler.print()" style="display:none;">⎙ Print</button>
+</header>
+
+<!-- ============================================================
+     TOOLBAR — 3 controls + range pill + UK holidays
+============================================================ -->
+<div class="toolbar no-print">
+  <span class="toolbar-label">Start</span>
+  <select id="startMonth" onchange="App.onRangeChange()">
+    <option value="0">January</option><option value="1">February</option>
+    <option value="2">March</option><option value="3">April</option>
+    <option value="4">May</option><option value="5">June</option>
+    <option value="6">July</option><option value="7">August</option>
+    <option value="8">September</option><option value="9">October</option>
+    <option value="10">November</option><option value="11">December</option>
+  </select>
+  <select id="startYear" onchange="App.onRangeChange()"></select>
+  <span class="toolbar-label">Months</span>
+  <select id="monthCount" onchange="App.onRangeChange()">
+    <option value="1" selected>1</option><option value="2">2</option>
+    <option value="3">3</option><option value="4">4</option>
+    <option value="5">5</option><option value="6">6</option>
+    <option value="7">7</option><option value="8">8</option>
+    <option value="9">9</option><option value="10">10</option>
+    <option value="11">11</option><option value="12">12</option>
+  </select>
+  <div class="range-pill" id="rangeIndicator">—</div>
+  <div class="toolbar-sep"></div>
+  <button class="uk-btn" onclick="UKHolidays.load()">🇬🇧 UK Holidays</button>
+  <div class="toolbar-sep"></div>
+  <select id="fontSelect" onchange="FontManager.apply(this.value)" title="Choose font"></select>
+  <label style="font-size:0.65rem;color:var(--text-muted);">Today</label>
+  <input type="checkbox" id="showToday" onchange="UIRenderer.renderAll()" title="Highlight today" style="accent-color:var(--accent);cursor:pointer;" />
+</div>
+
+<!-- ============================================================
+     MAIN
+============================================================ -->
+<main>
+
+  <!-- SIDEBAR (desktop) -->
+  <aside class="sidebar no-print">
+    <div class="sidebar-inner">
+
+      <!-- ① MONTHS accordion -->
+      <div class="accordion" id="accMonths">
+        <div class="accordion-header" onclick="UI.toggleAccordion('accMonths')">
+          <div class="accordion-title">
+            <span class="acc-icon">🗓</span> Months
+          </div>
+          <span class="accordion-chevron">▼</span>
+        </div>
+        <div class="accordion-body">
+          <div class="month-list" id="monthList"></div>
+        </div>
+      </div>
+
+      <!-- ② PHOTO accordion — open by default -->
+      <div class="accordion open" id="accPhoto">
+        <div class="accordion-header" onclick="UI.toggleAccordion('accPhoto')">
+          <div class="accordion-title">
+            <span class="acc-icon">📷</span>
+            <span id="editorTitle">Photo</span>
+          </div>
+          <span class="accordion-chevron">▼</span>
+        </div>
+        <div class="accordion-body">
+          <!-- Layout templates -->
+          <div>
+            <div style="font-size:0.65rem;color:var(--text-muted);margin-bottom:6px;">Layout</div>
+            <div class="template-grid" id="templateGrid"></div>
+          </div>
+          <!-- Photo slots -->
+          <div id="photoSlots"></div>
+          <!-- Caption -->
+          <div>
+            <div style="font-size:0.65rem;color:var(--text-muted);margin-bottom:5px;">Caption <span style="opacity:0.5;">(optional)</span></div>
+            <textarea id="captionInput" rows="2" maxlength="200"
+              placeholder="A short note or quote for this month..."
+              oninput="App.onCaptionChange(this.value)"></textarea>
+          </div>
+          <!-- Compact grid — hidden label, just a toggle -->
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.74rem;color:var(--text-muted);">
+            <span>Hide empty grid rows</span>
+            <input type="checkbox" id="compactGrid" checked
+              onchange="App.onCompactChange(this.checked)"
+              style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ EVENTS accordion -->
+      <div class="accordion" id="accEvents">
+        <div class="accordion-header" onclick="UI.toggleAccordion('accEvents')">
+          <div class="accordion-title">
+            <span class="acc-icon">⭐</span> Special Events
+            <span class="acc-badge" id="eventBadge" style="display:none;">0</span>
+          </div>
+          <span class="accordion-chevron">▼</span>
+        </div>
+        <div class="accordion-body">
+          <input type="text" id="eventText" maxlength="60" placeholder="Event name..." style="width:100%;" />
+          <div class="date-range-row">
+            <div class="date-field">
+              <label>Start date</label>
+              <div class="date-field-input empty" id="startDateDisplay" onclick="DatePicker.open('start')" tabindex="0">
+                <span id="startDateLabel">Pick date</span>
+                <span class="cal-icon">📅</span>
+              </div>
+            </div>
+            <div class="date-field">
+              <label>End date <span style="opacity:0.5;">(optional)</span></label>
+              <div class="date-field-input empty" id="endDateDisplay" onclick="DatePicker.open('end')" tabindex="0">
+                <span id="endDateLabel">Pick date</span>
+                <span class="cal-icon">📅</span>
+              </div>
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="eventRecurring" />
+            <label for="eventRecurring">Repeat every year</label>
+          </div>
+          <button onclick="EventManager.addEvent()" class="primary w100">+ Add Event</button>
+          <div id="eventsList"></div>
+        </div>
+      </div>
+
+      <!-- ④ HOLIDAYS accordion -->
+      <div class="accordion" id="accHolidays">
+        <div class="accordion-header" onclick="UI.toggleAccordion('accHolidays')">
+          <div class="accordion-title">
+            <span class="acc-icon">🏖</span> Holidays
+            <span class="acc-badge" id="holidayBadge" style="display:none;">0</span>
+          </div>
+          <span class="accordion-chevron">▼</span>
+        </div>
+        <div class="accordion-body">
+          <div id="holidayStatus" class="text-muted">No holidays loaded yet.</div>
+          <button class="uk-btn w100" onclick="UKHolidays.load()">🇬🇧 Load UK Bank Holidays</button>
+          <button onclick="App.loadHolidays()" class="ghost w100">Import custom file…</button>
+          <button onclick="HolidayLoader.clear()" class="danger w100">Remove all holidays</button>
+        </div>
+      </div>
+
+      <!-- ⑤ SETTINGS accordion -->
+      <div class="accordion" id="accSettings">
+        <div class="accordion-header" onclick="UI.toggleAccordion('accSettings')">
+          <div class="accordion-title">
+            <span class="acc-icon">⚙</span> Settings
+          </div>
+          <span class="accordion-chevron">▼</span>
+        </div>
+        <div class="accordion-body">
+          <button onclick="BrandingManager.editTitle()" class="ghost w100">✏ Rename calendar</button>
+          <button onclick="BrandingManager.triggerLogoUpload()" class="ghost w100">🖼 Upload logo</button>
+          <button onclick="BrandingManager.removeLogo()" class="ghost w100">Remove logo</button>
+          <div style="height:1px;background:var(--border);"></div>
+          <button onclick="App.exportJSON()" class="ghost w100">↓ Export settings & events</button>
+          <button onclick="App.triggerImportJSON()" class="ghost w100">↑ Import settings & events</button>
+          <div style="height:1px;background:var(--border);"></div>
+          <button onclick="App.clearAllPhotos()" class="danger w100">Clear all photos</button>
+          <button onclick="App.clearAllEvents()" class="danger w100">Clear all events</button>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- PREVIEW -->
+  <div class="preview-area" id="previewArea"></div>
+
+</main>
+
+<!-- ============================================================
+     MOBILE DRAWER
+============================================================ -->
+<div class="drawer-backdrop" id="drawerBackdrop" onclick="MobileUI.closeDrawer()"></div>
+
+<div class="drawer" id="drawer">
+  <div class="drawer-handle" onclick="MobileUI.closeDrawer()"></div>
+  <div class="drawer-tabs">
+    <button class="drawer-tab-btn active" id="drawerTabMonth" onclick="MobileUI.switchTab('month')">📷 This Month</button>
+    <button class="drawer-tab-btn" id="drawerTabSettings" onclick="MobileUI.switchTab('settings')">⚙ Settings</button>
+  </div>
+
+  <!-- MONTH TAB -->
+  <div class="drawer-panel active" id="drawerPanelMonth">
+    <div class="drawer-section">
+      <h4 id="mEditorTitle">Select a month</h4>
+      <div class="mobile-template-grid" id="mTemplateGrid"></div>
+      <div id="mPhotoSlots"></div>
+      <div>
+        <div style="font-size:0.66rem;color:var(--text-muted);margin-bottom:4px;">Caption</div>
+        <textarea class="mobile-caption" id="mCaptionInput" rows="2" maxlength="200"
+          placeholder="A short note for this month..."
+          oninput="MobileUI.onMobileCaption(this.value)"></textarea>
+      </div>
+      <div class="mobile-toggle-row">
+        <label for="mCompactGrid">Hide empty rows</label>
+        <input type="checkbox" id="mCompactGrid" checked onchange="MobileUI.onMobileCompact(this.checked)" />
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div class="drawer-panel" id="drawerPanelSettings">
+    <div class="drawer-section">
+      <h4>Calendar Range</h4>
+      <div class="mobile-row">
+        <select id="mStartMonth" onchange="MobileUI.syncFromDrawer()">
+          <option value="0">Jan</option><option value="1">Feb</option>
+          <option value="2">Mar</option><option value="3">Apr</option>
+          <option value="4">May</option><option value="5">Jun</option>
+          <option value="6">Jul</option><option value="7">Aug</option>
+          <option value="8">Sep</option><option value="9">Oct</option>
+          <option value="10">Nov</option><option value="11">Dec</option>
+        </select>
+        <select id="mStartYear" onchange="MobileUI.syncFromDrawer()"></select>
+        <select id="mMonthCount" onchange="MobileUI.syncFromDrawer()">
+          <option value="1" selected>1</option><option value="2">2</option>
+          <option value="3">3</option><option value="4">4</option>
+          <option value="5">5</option><option value="6">6</option>
+          <option value="7">7</option><option value="8">8</option>
+          <option value="9">9</option><option value="10">10</option>
+          <option value="11">11</option><option value="12">12</option>
+        </select>
+      </div>
+      <div class="range-pill-mob" id="mRangeIndicator2">—</div>
+    </div>
+    <div class="drawer-section">
+      <h4>Choose Month to Edit</h4>
+      <div class="mobile-month-list" id="mobileMonthList"></div>
+    </div>
+    <div class="drawer-section">
+      <h4>Holidays</h4>
+      <div class="mobile-row">
+        <button class="uk-btn" onclick="UKHolidays.load()">🇬🇧 UK Holidays</button>
+        <button onclick="HolidayLoader.clear()" class="danger">Clear</button>
+      </div>
+      <div id="mHolidayStatus" class="text-muted" style="font-size:0.72rem;margin-top:3px;"></div>
+    </div>
+    <div class="drawer-section">
+      <h4>Actions</h4>
+      <div class="mobile-row">
+        <button onclick="App.exportJSON()">↓ Export</button>
+        <button onclick="App.triggerImportJSON()">↑ Import</button>
+        <button class="theme-btn" onclick="BrandingManager.toggleTheme()" id="mThemeBtn">☀ Light</button>
+      </div>
+      <div class="mobile-row" style="margin-top:5px;">
+        <button onclick="BrandingManager.editTitle()">Rename</button>
+        <button onclick="App.clearAllPhotos()" class="danger">Clear Photos</button>
+      </div>
+    </div>
+    <button class="btn-print w100" onclick="PrintHandler.print()" style="margin-top:4px;">⎙ Print Calendar</button>
+  </div>
+</div>
+
+<!-- Bottom bar (always visible on mobile) -->
+<div class="drawer-tab" id="drawerTab">
+  <div class="mobile-row" style="width:100%;justify-content:space-between;align-items:center;">
+    <div class="range-pill-mob" id="mRangeIndicator">—</div>
+    <button onclick="MobileUI.toggleDrawer()" style="padding:8px 16px;font-size:0.8rem;">⚙ Controls</button>
+    <button class="btn-print" onclick="PrintHandler.print()" style="padding:8px 16px;font-size:0.8rem;">⎙ Print</button>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   MODULE: UI
+   Accordion toggle, More menu, badge updates.
+   Keeps all pure UI interaction logic separate from data.
+============================================================ */
+const UI = (() => {
+
+  /* Toggle an accordion section. Closes others if only one open at a time. */
+  function toggleAccordion(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isOpen = el.classList.contains('open');
+    // Close all accordions
+    document.querySelectorAll('.accordion').forEach(a => a.classList.remove('open'));
+    // Open the clicked one if it was closed
+    if (!isOpen) el.classList.add('open');
+  }
+
+  /* More menu toggle (desktop header).
+     stopPropagation prevents the document click-outside listener
+     from immediately closing the menu that was just opened. */
+  function toggleMoreMenu(e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById('moreMenu');
+    if (!menu) return;
+    menu.classList.toggle('open');
+  }
+
+  /* Close more menu when clicking anywhere outside the wrap */
+  document.addEventListener('click', e => {
+    const wrap = document.querySelector('.more-menu-wrap');
+    const menu = document.getElementById('moreMenu');
+    if (!menu || !menu.classList.contains('open')) return;
+    if (wrap && wrap.contains(e.target)) return; // click inside — ignore
+    menu.classList.remove('open');
+  });
+
+  /* Update event count badge */
+  function updateEventBadge(count) {
+    const b = document.getElementById('eventBadge');
+    if (!b) return;
+    b.textContent = count;
+    b.style.display = count > 0 ? 'inline-block' : 'none';
+  }
+
+  /* Update holiday count badge */
+  function updateHolidayBadge(count) {
+    const b = document.getElementById('holidayBadge');
+    if (!b) return;
+    b.textContent = count;
+    b.style.display = count > 0 ? 'inline-block' : 'none';
+  }
+
+  /* First-use pulse: add to upload button if no photos yet for this month */
+  function setPulse(el, on) {
+    if (!el) return;
+    on ? el.classList.add('pulse-hint') : el.classList.remove('pulse-hint');
+  }
+
+  return { toggleAccordion, toggleMoreMenu, updateEventBadge, updateHolidayBadge, setPulse };
+})();
+
+/* ============================================================
+   MODULE 1: CONFIG
+============================================================ */
+const CONFIG = {
+  version:'1.7.1', yearMin:2020, yearMax:2035,
+  defaultYear:new Date().getFullYear(), defaultMonth:new Date().getMonth(),
+  defaultCount:1, dbName:'CalendarGeneratorDB', dbVersion:2, dbStore:'photos',
+  maxCaptionLen:200, maxEventLen:60, printDPI:300, printWarnDPI:200,
+  slotPrintMM:{ main:{w:210,h:148}, side:{w:70,h:74} },
+  templates:[
+    {id:'single',label:'Full',   icon:'▣',    slotCount:1},
+    {id:'1plus2',label:'1 + 2',  icon:'▣▪▪',  slotCount:3},
+    {id:'1plus3',label:'1 + 3',  icon:'▣▫▫▫', slotCount:4},
+  ],
+  daysOfWeek:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+  monthNames:['January','February','March','April','May','June',
+              'July','August','September','October','November','December'],
+};
+
+/* ============================================================
+   MODULE 2: SECURITY
+============================================================ */
+const Security = (() => {
+  const sanitiseText = str => typeof str!=='string'?'':str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;').replace(/\//g,'&#x2F;').slice(0,500);
+  function validateSchema(obj,schema){for(const k of Object.keys(schema)){if(schema[k]==='optional')continue;const v=obj[k];if(v===undefined||v===null)throw new Error('Missing: '+k);if(schema[k]==='array'&&!Array.isArray(v))throw new Error('Expected array: '+k);if(schema[k]!=='array'&&typeof v!==schema[k])throw new Error('Expected '+schema[k]+': '+k);}}
+  const isValidDate = s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!isNaN(Date.parse(s));
+  const isValidYear = y=>Number.isInteger(y)&&y>=CONFIG.yearMin&&y<=CONFIG.yearMax;
+  return {sanitiseText,validateSchema,isValidDate,isValidYear};
+})();
+
+/* ============================================================
+   MODULE 3: CalendarEngine
+============================================================ */
+const CalendarEngine = (() => {
+  function getMonthGrid(year,month){const fd=new Date(year,month,1).getDay(),offset=fd===0?6:fd-1,days=new Date(year,month+1,0).getDate(),cells=new Array(42).fill(0);for(let d=1;d<=days;d++)cells[offset+d-1]=d;return cells;}
+  function getTodayDay(year,month){const n=new Date();return(n.getFullYear()===year&&n.getMonth()===month)?n.getDate():null;}
+  function buildRange(sy,sm,count){const r=[];let y=sy,m=sm;for(let i=0;i<Math.min(count,12);i++){r.push({year:y,month:m});m++;if(m>11){m=0;y++;}}return r;}
+  function rangeLabel(range){if(!range.length)return'';const f=r=>CONFIG.monthNames[r.month].slice(0,3)+' '+r.year;return range.length===1?f(range[0]):f(range[0])+' → '+f(range[range.length-1]);}
+  return {getMonthGrid,getTodayDay,buildRange,rangeLabel};
+})();
+
+/* ============================================================
+   MODULE 4: DatePicker
+   Mini calendar popup for selecting start/end event dates.
+   Draft state lives HERE — no dependency on EventManager.
+   EventManager calls DatePicker.getDraftStart/End() when adding.
+============================================================ */
+const DatePicker = (() => {
+  let mode      = 'start';
+  let viewYear  = new Date().getFullYear();
+  let viewMonth = new Date().getMonth();
+  let backdropEl = null, popupEl = null;
+
+  /* Draft state owned by DatePicker — no circular reference */
+  let draftStart = '';
+  let draftEnd   = '';
+
+  const getDraftStart = () => draftStart;
+  const getDraftEnd   = () => draftEnd;
+
+  function open(which) {
+    mode = which;
+    const anchor = document.getElementById(which==='start'?'startDateDisplay':'endDateDisplay');
+    const rect   = anchor ? anchor.getBoundingClientRect() : {bottom:200,left:20};
+
+    // Navigate popup to the relevant month if date already set
+    const existing = which==='start' ? draftStart : draftEnd;
+    if (existing) { const d=new Date(existing); viewYear=d.getFullYear(); viewMonth=d.getMonth(); }
+
+    close();
+
+    backdropEl = document.createElement('div');
+    backdropEl.className = 'datepicker-backdrop';
+    backdropEl.onclick = close;
+    document.body.appendChild(backdropEl);
+
+    popupEl = document.createElement('div');
+    popupEl.className = 'datepicker-popup';
+    document.body.appendChild(popupEl);
+    renderPopup();
+
+    const popH = 300;
+    let top = rect.bottom + 4;
+    if (top + popH > window.innerHeight) top = Math.max(8, rect.top - popH - 4);
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - 252));
+    popupEl.style.top  = top  + 'px';
+    popupEl.style.left = left + 'px';
+  }
+
+  function close() {
+    if (backdropEl) { backdropEl.remove(); backdropEl = null; }
+    if (popupEl)    { popupEl.remove();    popupEl    = null; }
+  }
+
+  function renderPopup() {
+    if (!popupEl) return;
+    const todayStr = new Date().toISOString().slice(0,10);
+    const cells    = CalendarEngine.getMonthGrid(viewYear, viewMonth);
+    const pad      = n => String(n).padStart(2,'0');
+
+    let html = `
+      <div class="dp-header">
+        <button onclick="DatePicker._prev()">◀</button>
+        <div class="dp-month-label">${CONFIG.monthNames[viewMonth]} ${viewYear}</div>
+        <button onclick="DatePicker._next()">▶</button>
+      </div>
+      <div class="dp-dow-row">
+        ${CONFIG.daysOfWeek.map(d=>`<div class="dp-dow-cell">${d[0]}</div>`).join('')}
+      </div>
+      <div class="dp-days-grid">`;
+
+    cells.forEach(day => {
+      if (day === 0) { html += `<div class="dp-day empty"></div>`; return; }
+      const ds  = `${viewYear}-${pad(viewMonth+1)}-${pad(day)}`;
+      let   cls = 'dp-day';
+      if (ds === todayStr)  cls += ' today';
+      if (ds === draftStart) cls += ' selected-start';
+      if (ds === draftEnd)   cls += ' selected-end';
+      if (draftStart && draftEnd && ds > draftStart && ds < draftEnd) cls += ' in-range';
+      html += `<div class="${cls}" onclick="DatePicker._select('${ds}')">${day}</div>`;
+    });
+
+    html += `</div>
+      <div class="dp-footer">
+        <span>${mode==='start'?'Pick start date':'Pick end date (optional)'}</span>
+        <div style="display:flex;gap:5px;">
+          ${mode==='end'?`<button onclick="DatePicker._clearEnd()">Clear end</button>`:''}
+          <button onclick="DatePicker.close()">Done</button>
+        </div>
+      </div>`;
+
+    popupEl.innerHTML = html;
+  }
+
+  function _select(ds) {
+    if (mode === 'start') {
+      draftStart = ds;
+      if (draftEnd && draftEnd < ds) draftEnd = '';
+      updateDisplays();
+      mode = 'end'; // auto-advance to end selection
+      renderPopup();
+    } else {
+      if (ds < draftStart) { Toast.show('End date must be after start.','error'); return; }
+      draftEnd = ds;
+      updateDisplays();
+      renderPopup();
+    }
+  }
+
+  function _clearEnd() { draftEnd = ''; updateDisplays(); renderPopup(); }
+  function _prev()     { viewMonth--; if(viewMonth<0){viewMonth=11;viewYear--;} renderPopup(); }
+  function _next()     { viewMonth++; if(viewMonth>11){viewMonth=0;viewYear++;} renderPopup(); }
+
+  function updateDisplays() {
+    const sd=document.getElementById('startDateDisplay');
+    const sl=document.getElementById('startDateLabel');
+    const ed=document.getElementById('endDateDisplay');
+    const el=document.getElementById('endDateLabel');
+    if (!sd) return;
+    if (draftStart) { sl.textContent=formatDate(draftStart); sd.classList.remove('empty'); sd.classList.add('has-date'); }
+    else            { sl.textContent='Select date'; sd.classList.add('empty'); sd.classList.remove('has-date'); }
+    if (draftEnd)   { el.textContent=formatDate(draftEnd);   ed.classList.remove('empty'); ed.classList.add('has-date'); }
+    else            { el.textContent='Select date'; ed.classList.add('empty'); ed.classList.remove('has-date'); }
+  }
+
+  function formatDate(str) {
+    if (!str) return '';
+    const [y,m,d] = str.split('-');
+    return `${parseInt(d)} ${CONFIG.monthNames[parseInt(m)-1].slice(0,3)} ${y}`;
+  }
+
+  function reset() { draftStart=''; draftEnd=''; updateDisplays(); }
+
+  return { open, close, _select, _clearEnd, _prev, _next,
+           updateDisplays, reset, formatDate,
+           getDraftStart, getDraftEnd };
+})();
+
+/* ============================================================
+   MODULE 5: EventManager
+   Draft dates are owned by DatePicker — retrieved via
+   DatePicker.getDraftStart() / getDraftEnd(). No circular ref.
+============================================================ */
+const EventManager = (() => {
+  let events = [];
+
+  function addEvent() {
+    const text      = document.getElementById('eventText').value.trim();
+    const startDate = DatePicker.getDraftStart();
+    const endDate   = DatePicker.getDraftEnd();
+    const recurring = document.getElementById('eventRecurring').checked;
+
+    if (!text) { Toast.show('Enter an event name.','error'); return; }
+    if (!Security.isValidDate(startDate)) { Toast.show('Select a start date.','error'); return; }
+    if (endDate && !Security.isValidDate(endDate)) { Toast.show('Invalid end date.','error'); return; }
+    if (endDate && endDate < startDate) { Toast.show('End date must be after start.','error'); return; }
+    if (text.length > CONFIG.maxEventLen) { Toast.show('Event name too long.','error'); return; }
+
+    events.push({ id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), text, startDate, endDate:endDate||'', recurring });
+    document.getElementById('eventText').value = '';
+    document.getElementById('eventRecurring').checked = false;
+    DatePicker.reset();
+    UIRenderer.renderEventsList(); UIRenderer.renderAll();
+    Toast.show('Event added.','success');
+  }
+
+  function removeEvent(id) { events=events.filter(e=>e.id!==id); UIRenderer.renderEventsList(); UIRenderer.renderAll(); }
+
+  function getEventsForDay(year,month,day) {
+    const pad = n=>String(n).padStart(2,'0');
+    const ds  = `${year}-${pad(month+1)}-${pad(day)}`;
+    return events.filter(ev=>{
+      if (ev.recurring) {
+        const [,sm,sd]=ev.startDate.split('-');
+        if (!ev.endDate) return sm===pad(month+1)&&sd===pad(day);
+        const [,em,ed]=ev.endDate.split('-');
+        const cs=`${year}-${sm}-${sd}`, ce=`${year}-${em}-${ed}`;
+        return ds>=cs&&ds<=ce;
+      }
+      return !ev.endDate?ev.startDate===ds:ds>=ev.startDate&&ds<=ev.endDate;
+    });
+  }
+
+  function isRange(ev) { return !!ev.endDate; }
+  function getAll()    { return events; }
+  function setAll(arr) {
+    events=(arr||[]).filter(e=>{try{Security.validateSchema(e,{id:'string',text:'string',startDate:'string',recurring:'boolean'});return Security.isValidDate(e.startDate);}catch{return false;}});
+  }
+  function clear(){ events=[]; UIRenderer.renderEventsList(); UIRenderer.renderAll(); Toast.show('Events cleared.','success'); }
+
+  return {addEvent,removeEvent,getEventsForDay,isRange,getAll,setAll,clear};
+})();
+
+/* ============================================================
+   MODULE 6: HolidayLoader
+============================================================ */
+const HolidayLoader = (() => {
+  let holidays=[];
+  const REGIONS=['england-and-wales','scotland','northern-ireland'];
+  function import_(ev){
+    const file=ev.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        const raw=JSON.parse(e.target.result);
+        let ex=Array.isArray(raw)?raw:[];
+        if(!ex.length)for(const k of REGIONS)if(raw[k]?.events){ex=raw[k].events;break;}
+        if(!ex.length)throw new Error('No events found.');
+        const loaded=ex.filter(h=>h&&typeof h.title==='string'&&Security.isValidDate(h.date)).map(h=>({title:h.title.slice(0,80),date:h.date}));
+        loaded.forEach(h=>{if(!holidays.some(x=>x.date===h.date&&x.title===h.title))holidays.push(h);});
+        updateStatus();UIRenderer.renderAll();Toast.show(loaded.length+' holidays imported.','success');
+      }catch(err){Toast.show('Holiday error: '+err.message,'error');}
+      ev.target.value='';
+    };
+    reader.readAsText(file);
+  }
+  function setHolidays(arr){holidays=arr;updateStatus();}
+  function getHolidaysForDay(year,month,day){const p=n=>String(n).padStart(2,'0');const d=`${year}-${p(month+1)}-${p(day)}`;return holidays.filter(h=>h.date===d);}
+  function getAll(){return holidays;}
+  function setAll(arr){holidays=(arr||[]).filter(h=>h&&typeof h.title==='string'&&Security.isValidDate(h.date));updateStatus();}
+  function clear(){holidays=[];updateStatus();UIRenderer.renderAll();Toast.show('Holidays cleared.','success');}
+  function updateStatus(){
+    const count=holidays.length;
+    const el=document.getElementById('holidayStatus');if(el)el.textContent=count?count+' holidays loaded.':'No holidays loaded yet.';
+    const mhs=document.getElementById('mHolidayStatus');if(mhs)mhs.textContent=count?count+' holidays loaded.':'';
+    if(typeof UI!=='undefined')UI.updateHolidayBadge(count);
+  }
+  return {import:import_,setHolidays,getHolidaysForDay,getAll,setAll,clear,updateStatus};
+})();
+
+/* ============================================================
+   MODULE 7: UKHolidays (built-in England & Wales 2020-2035)
+============================================================ */
+const UKHolidays = (() => {
+  const DATA=[
+    {title:"New Year's Day",date:"2020-01-01"},{title:"Good Friday",date:"2020-04-10"},{title:"Easter Monday",date:"2020-04-13"},{title:"Early May Bank Holiday",date:"2020-05-08"},{title:"Spring Bank Holiday",date:"2020-05-25"},{title:"Summer Bank Holiday",date:"2020-08-31"},{title:"Christmas Day",date:"2020-12-25"},{title:"Boxing Day",date:"2020-12-28"},
+    {title:"New Year's Day",date:"2021-01-01"},{title:"Good Friday",date:"2021-04-02"},{title:"Easter Monday",date:"2021-04-05"},{title:"Early May Bank Holiday",date:"2021-05-03"},{title:"Spring Bank Holiday",date:"2021-05-31"},{title:"Summer Bank Holiday",date:"2021-08-30"},{title:"Christmas Day",date:"2021-12-27"},{title:"Boxing Day",date:"2021-12-28"},
+    {title:"New Year's Day",date:"2022-01-03"},{title:"Good Friday",date:"2022-04-15"},{title:"Easter Monday",date:"2022-04-18"},{title:"Early May Bank Holiday",date:"2022-05-02"},{title:"Spring Bank Holiday",date:"2022-06-02"},{title:"Platinum Jubilee",date:"2022-06-03"},{title:"Summer Bank Holiday",date:"2022-08-29"},{title:"State Funeral Queen Elizabeth II",date:"2022-09-19"},{title:"Christmas Day",date:"2022-12-27"},{title:"Boxing Day",date:"2022-12-26"},
+    {title:"New Year's Day",date:"2023-01-02"},{title:"Good Friday",date:"2023-04-07"},{title:"Easter Monday",date:"2023-04-10"},{title:"Early May Bank Holiday",date:"2023-05-01"},{title:"Coronation Bank Holiday",date:"2023-05-08"},{title:"Spring Bank Holiday",date:"2023-05-29"},{title:"Summer Bank Holiday",date:"2023-08-28"},{title:"Christmas Day",date:"2023-12-25"},{title:"Boxing Day",date:"2023-12-26"},
+    {title:"New Year's Day",date:"2024-01-01"},{title:"Good Friday",date:"2024-03-29"},{title:"Easter Monday",date:"2024-04-01"},{title:"Early May Bank Holiday",date:"2024-05-06"},{title:"Spring Bank Holiday",date:"2024-05-27"},{title:"Summer Bank Holiday",date:"2024-08-26"},{title:"Christmas Day",date:"2024-12-25"},{title:"Boxing Day",date:"2024-12-26"},
+    {title:"New Year's Day",date:"2025-01-01"},{title:"Good Friday",date:"2025-04-18"},{title:"Easter Monday",date:"2025-04-21"},{title:"Early May Bank Holiday",date:"2025-05-05"},{title:"Spring Bank Holiday",date:"2025-05-26"},{title:"Summer Bank Holiday",date:"2025-08-25"},{title:"Christmas Day",date:"2025-12-25"},{title:"Boxing Day",date:"2025-12-26"},
+    {title:"New Year's Day",date:"2026-01-01"},{title:"Good Friday",date:"2026-04-03"},{title:"Easter Monday",date:"2026-04-06"},{title:"Early May Bank Holiday",date:"2026-05-04"},{title:"Spring Bank Holiday",date:"2026-05-25"},{title:"Summer Bank Holiday",date:"2026-08-31"},{title:"Christmas Day",date:"2026-12-25"},{title:"Boxing Day",date:"2026-12-28"},
+    {title:"New Year's Day",date:"2027-01-01"},{title:"Good Friday",date:"2027-03-26"},{title:"Easter Monday",date:"2027-03-29"},{title:"Early May Bank Holiday",date:"2027-05-03"},{title:"Spring Bank Holiday",date:"2027-05-31"},{title:"Summer Bank Holiday",date:"2027-08-30"},{title:"Christmas Day",date:"2027-12-27"},{title:"Boxing Day",date:"2027-12-28"},
+    {title:"New Year's Day",date:"2028-01-03"},{title:"Good Friday",date:"2028-04-14"},{title:"Easter Monday",date:"2028-04-17"},{title:"Early May Bank Holiday",date:"2028-05-01"},{title:"Spring Bank Holiday",date:"2028-05-29"},{title:"Summer Bank Holiday",date:"2028-08-28"},{title:"Christmas Day",date:"2028-12-25"},{title:"Boxing Day",date:"2028-12-26"},
+    {title:"New Year's Day",date:"2029-01-01"},{title:"Good Friday",date:"2029-03-30"},{title:"Easter Monday",date:"2029-04-02"},{title:"Early May Bank Holiday",date:"2029-05-07"},{title:"Spring Bank Holiday",date:"2029-05-28"},{title:"Summer Bank Holiday",date:"2029-08-27"},{title:"Christmas Day",date:"2029-12-25"},{title:"Boxing Day",date:"2029-12-26"},
+    {title:"New Year's Day",date:"2030-01-01"},{title:"Good Friday",date:"2030-04-19"},{title:"Easter Monday",date:"2030-04-22"},{title:"Early May Bank Holiday",date:"2030-05-06"},{title:"Spring Bank Holiday",date:"2030-05-27"},{title:"Summer Bank Holiday",date:"2030-08-26"},{title:"Christmas Day",date:"2030-12-25"},{title:"Boxing Day",date:"2030-12-26"},
+    {title:"New Year's Day",date:"2031-01-01"},{title:"Good Friday",date:"2031-04-11"},{title:"Easter Monday",date:"2031-04-14"},{title:"Early May Bank Holiday",date:"2031-05-05"},{title:"Spring Bank Holiday",date:"2031-05-26"},{title:"Summer Bank Holiday",date:"2031-08-25"},{title:"Christmas Day",date:"2031-12-25"},{title:"Boxing Day",date:"2031-12-26"},
+    {title:"New Year's Day",date:"2032-01-01"},{title:"Good Friday",date:"2032-03-26"},{title:"Easter Monday",date:"2032-03-29"},{title:"Early May Bank Holiday",date:"2032-05-03"},{title:"Spring Bank Holiday",date:"2032-05-31"},{title:"Summer Bank Holiday",date:"2032-08-30"},{title:"Christmas Day",date:"2032-12-27"},{title:"Boxing Day",date:"2032-12-28"},
+    {title:"New Year's Day",date:"2033-01-03"},{title:"Good Friday",date:"2033-04-15"},{title:"Easter Monday",date:"2033-04-18"},{title:"Early May Bank Holiday",date:"2033-05-02"},{title:"Spring Bank Holiday",date:"2033-05-30"},{title:"Summer Bank Holiday",date:"2033-08-29"},{title:"Christmas Day",date:"2033-12-26"},{title:"Boxing Day",date:"2033-12-27"},
+    {title:"New Year's Day",date:"2034-01-02"},{title:"Good Friday",date:"2034-04-07"},{title:"Easter Monday",date:"2034-04-10"},{title:"Early May Bank Holiday",date:"2034-05-01"},{title:"Spring Bank Holiday",date:"2034-05-29"},{title:"Summer Bank Holiday",date:"2034-08-28"},{title:"Christmas Day",date:"2034-12-25"},{title:"Boxing Day",date:"2034-12-26"},
+    {title:"New Year's Day",date:"2035-01-01"},{title:"Good Friday",date:"2035-03-23"},{title:"Easter Monday",date:"2035-03-26"},{title:"Early May Bank Holiday",date:"2035-05-07"},{title:"Spring Bank Holiday",date:"2035-05-28"},{title:"Summer Bank Holiday",date:"2035-08-27"},{title:"Christmas Day",date:"2035-12-25"},{title:"Boxing Day",date:"2035-12-26"},
+  ];
+  function load(){
+    const sm=parseInt(document.getElementById('startMonth').value);
+    const sy=parseInt(document.getElementById('startYear').value);
+    const cnt=parseInt(document.getElementById('monthCount').value);
+    const range=CalendarEngine.buildRange(sy,sm,cnt);
+    const years=[...new Set(range.map(r=>r.year))];
+    const filtered=DATA.filter(h=>years.includes(parseInt(h.date.slice(0,4))));
+    HolidayLoader.setHolidays(filtered);HolidayLoader.updateStatus();UIRenderer.renderAll();
+    Toast.show(filtered.length+' UK bank holidays loaded.','success');
+  }
+  return {load};
+})();
+
+/* ============================================================
+   MODULE 8: PhotoManager (IndexedDB)
+============================================================ */
+const PhotoManager = (() => {
+  let db=null;
+  function init(){return new Promise((res,rej)=>{const req=indexedDB.open(CONFIG.dbName,CONFIG.dbVersion);req.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains(CONFIG.dbStore))d.createObjectStore(CONFIG.dbStore);};req.onsuccess=e=>{db=e.target.result;res();};req.onerror=()=>rej(req.error);});}
+  const put=(k,v)=>new Promise((res,rej)=>{const tx=db.transaction(CONFIG.dbStore,'readwrite');tx.objectStore(CONFIG.dbStore).put(v,k);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});
+  const get=k=>new Promise(res=>{const tx=db.transaction(CONFIG.dbStore,'readonly');const r=tx.objectStore(CONFIG.dbStore).get(k);r.onsuccess=()=>res(r.result||null);r.onerror=()=>res(null);});
+  const del=k=>new Promise(res=>{const tx=db.transaction(CONFIG.dbStore,'readwrite');tx.objectStore(CONFIG.dbStore).delete(k);tx.oncomplete=res;});
+  const clearAll=()=>new Promise(res=>{const tx=db.transaction(CONFIG.dbStore,'readwrite');tx.objectStore(CONFIG.dbStore).clear();tx.oncomplete=res;});
+  const pK=(y,m,s)=>`photo_${y}_${m}_${s}`, zK=(y,m,s)=>`pz_${y}_${m}_${s}`;
+  const savePhoto=(y,m,s,d)=>put(pK(y,m,s),d);
+  const loadPhoto=(y,m,s)=>get(pK(y,m,s));
+  const deletePhoto=(y,m,s)=>del(pK(y,m,s)).then(()=>del(zK(y,m,s)));
+  const savePZ=(y,m,s,st)=>put(zK(y,m,s),st);
+  const loadPZ=(y,m,s)=>get(zK(y,m,s));
+  return {init,savePhoto,loadPhoto,deletePhoto,savePZ,loadPZ,clearAll};
+})();
+
+/* ============================================================
+   MODULE 9: FontManager
+============================================================ */
+const FontManager = (() => {
+  const FONTS=[
+    {label:'Georgia (Classic)',   value:'georgia',   stack:"'Georgia','Times New Roman',serif"},
+    {label:'Palatino (Elegant)',  value:'palatino',  stack:"'Palatino Linotype','Book Antiqua',serif"},
+    {label:'Trebuchet (Modern)',  value:'trebuchet', stack:"'Trebuchet MS','Helvetica Neue',sans-serif"},
+    {label:'Courier (Typewriter)',value:'courier',   stack:"'Courier New',monospace"},
+  ];
+  let current='georgia';
+  function init(){const sel=document.getElementById('fontSelect');FONTS.forEach(f=>{const o=document.createElement('option');o.value=f.value;o.textContent=f.label;sel.appendChild(o);});apply(current);}
+  function apply(val){const f=FONTS.find(x=>x.value===val)||FONTS[0];current=f.value;document.documentElement.style.setProperty('--font-ui',f.stack);document.documentElement.style.setProperty('--font-cal',f.stack);document.getElementById('fontSelect').value=current;UIRenderer.renderAll();}
+  function getCurrent(){return current;}
+  function getStack(v){return(FONTS.find(f=>f.value===v)||FONTS[0]).stack;}
+  return {init,apply,getCurrent,getStack};
+})();
+
+/* ============================================================
+   MODULE 10: BrandingManager
+============================================================ */
+const BrandingManager = (() => {
+  let isDark=true,logoDataURL=null,title='Calendar Generator';
+  function toggleTheme(){isDark=!isDark;document.body.setAttribute('data-theme',isDark?'dark':'light');const t=isDark?'☀ Light Mode':'🌙 Dark Mode';document.getElementById('themeBtn').textContent=t;const mb=document.getElementById('mThemeBtn');if(mb)mb.textContent=isDark?'☀ Light':'🌙 Dark';}
+  function editTitle(){const v=prompt('Enter calendar title:',document.getElementById('brandTitle').textContent);if(v===null)return;title=v.trim().slice(0,60)||'Calendar Generator';document.getElementById('brandTitle').textContent=title;document.title=title+' — v'+CONFIG.version;}
+  function triggerLogoUpload(){document.getElementById('logoInput').click();}
+  function loadLogo(ev){const f=ev.target.files[0];if(!f)return;if(!f.type.startsWith('image/')){Toast.show('Select an image file.','error');return;}const r=new FileReader();r.onload=e=>{logoDataURL=e.target.result;const img=document.getElementById('brandLogo');img.src=logoDataURL;img.classList.add('visible');Toast.show('Logo uploaded.','success');};r.readAsDataURL(f);ev.target.value='';}
+  function removeLogo(){logoDataURL=null;const img=document.getElementById('brandLogo');img.src='';img.classList.remove('visible');}
+  function getState(){return{isDark,logoDataURL,title};}
+  function setState(s){if(!s)return;if(s.title){title=s.title;document.getElementById('brandTitle').textContent=title;}if(s.isDark!==undefined&&s.isDark!==isDark)toggleTheme();if(s.logoDataURL){logoDataURL=s.logoDataURL;const img=document.getElementById('brandLogo');img.src=logoDataURL;img.classList.add('visible');}}
+  return {toggleTheme,editTitle,triggerLogoUpload,loadLogo,removeLogo,getState,setState};
+})();
+
+/* ============================================================
+   MODULE 11: GooglePhotosStub (hidden, preserved for future use)
+============================================================ */
+const GooglePhotosStub = (() => {
+  function show(){const bd=document.createElement('div');bd.className='modal-backdrop';bd.innerHTML=`<div class="modal"><h2>📷 Google Photos</h2><p>Requires Google Cloud setup. Contact your developer to activate.</p><div class="modal-btns"><button onclick="this.closest('.modal-backdrop').remove()">Close</button></div></div>`;document.body.appendChild(bd);bd.addEventListener('click',e=>{if(e.target===bd)bd.remove();});}
+  return {show};
+})();
+
+/* ============================================================
+   MODULE 12: QualityChecker
+============================================================ */
+const QualityChecker = (() => {
+  const mmToPx=(mm,dpi)=>Math.round((mm/25.4)*dpi);
+  function check(dataURL,slotType){return new Promise(res=>{const img=new Image();img.onload=()=>{const mm=CONFIG.slotPrintMM[slotType]||CONFIG.slotPrintMM.main;const w=img.naturalWidth,h=img.naturalHeight;if(w>=mmToPx(mm.w,CONFIG.printDPI)&&h>=mmToPx(mm.h,CONFIG.printDPI))res('ok');else if(w>=mmToPx(mm.w,CONFIG.printWarnDPI)&&h>=mmToPx(mm.h,CONFIG.printWarnDPI))res('warn');else res('low');};img.onerror=()=>res('ok');img.src=dataURL;});}
+  return {check};
+})();
+
+/* ============================================================
+   MODULE 13: PanZoom
+   computeCoverState — fills frame, no gaps (cover).
+   computeFitState  — shows whole image (contain).
+   Attach works on both sidebar thumbnails and preview pages.
+============================================================ */
+const PanZoom = (() => {
+
+  /* Cover: scale so image fills the container completely.
+     Image may be cropped but no empty space. This is the new default. */
+  function computeCoverState(nw,nh,cw,ch){
+    const scale=Math.max(cw/nw,ch/nh);
+    return {x:(cw-nw*scale)/2, y:(ch-nh*scale)/2, scale};
+  }
+
+  /* Contain: whole image visible. Used by "Fit" button. */
+  function computeFitState(nw,nh,cw,ch){
+    const scale=Math.min(cw/nw,ch/nh);
+    return {x:(cw-nw*scale)/2, y:(ch-nh*scale)/2, scale};
+  }
+
+  /* locked=true: only applies image transform, no drag/zoom interaction.
+     Used for preview containers when pan is locked in sidebar. */
+  function attach(container,img,savedState,onChange,locked=false){
+    let state=null,dragging=false,startX=0,startY=0;
+    function applyState(){if(!state)return;img.style.transform=`translate(${state.x}px,${state.y}px) scale(${state.scale})`;}
+    function initState(){
+      const cW=container.offsetWidth||container.getBoundingClientRect().width||260;
+      const cH=container.offsetHeight||container.getBoundingClientRect().height||68;
+      img.style.width=img.naturalWidth+'px';
+      img.style.height=img.naturalHeight+'px';
+      state=(savedState&&savedState._userSet)?{...savedState}:computeCoverState(img.naturalWidth,img.naturalHeight,cW,cH);
+      applyState();
+    }
+    if(img.complete&&img.naturalWidth>0)initState();else img.onload=initState;
+
+    /* Only wire up interaction events when NOT locked */
+    if(!locked){
+      container.addEventListener('mousedown',e=>{dragging=true;startX=e.clientX-state.x;startY=e.clientY-state.y;container.style.cursor='grabbing';e.preventDefault();});
+      window.addEventListener('mousemove',e=>{if(!dragging)return;state.x=e.clientX-startX;state.y=e.clientY-startY;applyState();});
+      window.addEventListener('mouseup',()=>{if(!dragging)return;dragging=false;container.style.cursor='grab';state._userSet=true;onChange({...state});});
+      container.addEventListener('wheel',e=>{e.preventDefault();state.scale=Math.min(10,Math.max(0.1,state.scale*(e.deltaY>0?0.9:1.1)));applyState();state._userSet=true;onChange({...state});},{passive:false});
+      let ld=0;
+      container.addEventListener('touchstart',e=>{if(e.touches.length===1){dragging=true;startX=e.touches[0].clientX-state.x;startY=e.touches[0].clientY-state.y;}if(e.touches.length===2)ld=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);e.preventDefault();},{passive:false});
+      container.addEventListener('touchmove',e=>{if(e.touches.length===1&&dragging){state.x=e.touches[0].clientX-startX;state.y=e.touches[0].clientY-startY;applyState();}if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);state.scale=Math.min(10,Math.max(0.1,state.scale*(d/ld)));ld=d;applyState();}e.preventDefault();},{passive:false});
+      container.addEventListener('touchend',()=>{if(!dragging)return;dragging=false;state._userSet=true;onChange({...state});});
+    }
+
+    function zoom(f){if(!state)return;state.scale=Math.min(10,Math.max(0.1,state.scale*f));applyState();state._userSet=true;onChange({...state});}
+    function reset(){const cW=container.offsetWidth||260,cH=container.offsetHeight||68;state=computeFitState(img.naturalWidth,img.naturalHeight,cW,cH);state._userSet=false;applyState();onChange({...state});}
+    function cover(){const cW=container.offsetWidth||260,cH=container.offsetHeight||68;state=computeCoverState(img.naturalWidth,img.naturalHeight,cW,cH);state._userSet=false;applyState();onChange({...state});}
+
+    return {zoom,reset,cover};
+  }
+
+  return {attach,computeCoverState,computeFitState};
+})();
+
+/* ============================================================
+   MODULE 14: ImportExport
+============================================================ */
+const ImportExport = (() => {
+  const SV=2;
+  function exportJSON(){
+    const data={schemaVersion:SV,exportedAt:new Date().toISOString(),startMonth:parseInt(document.getElementById('startMonth').value),startYear:parseInt(document.getElementById('startYear').value),monthCount:parseInt(document.getElementById('monthCount').value),font:FontManager.getCurrent(),showToday:document.getElementById('showToday').checked,captions:App.getCaptions(),templates:App.getTemplates(),compactGrids:App.getCompactGrids(),events:EventManager.getAll(),holidays:HolidayLoader.getAll(),branding:BrandingManager.getState()};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`calendar-v${CONFIG.version}-${data.startYear}-${String(data.startMonth+1).padStart(2,'0')}.json`;a.click();URL.revokeObjectURL(url);Toast.show('Exported.','success');
+  }
+  function importJSON(ev){
+    const file=ev.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      let raw;try{raw=JSON.parse(e.target.result);}catch{Toast.show('Invalid JSON.','error');return;}
+      const bd=document.createElement('div');bd.className='modal-backdrop';
+      bd.innerHTML=`<div class="modal"><h2>Import Settings</h2><p>This replaces current settings and events. Photos unaffected. Continue?</p><div class="modal-btns"><button onclick="this.closest('.modal-backdrop').remove()">Cancel</button><button class="primary" id="doImport">Import</button></div></div>`;
+      document.body.appendChild(bd);
+      document.getElementById('doImport').onclick=()=>{
+        bd.remove();
+        try{
+          Security.validateSchema(raw,{schemaVersion:'number',startMonth:'number',startYear:'number',monthCount:'number',font:'string',events:'array'});
+          if(!Security.isValidYear(raw.startYear))throw new Error('Year out of range.');
+          document.getElementById('startMonth').value=raw.startMonth;document.getElementById('startYear').value=raw.startYear;document.getElementById('monthCount').value=raw.monthCount;
+          if(raw.showToday!==undefined)document.getElementById('showToday').checked=raw.showToday;
+          FontManager.apply(raw.font||'georgia');
+          if(raw.captions)App.setCaptions(raw.captions);if(raw.templates)App.setTemplates(raw.templates);if(raw.compactGrids)App.setCompactGrids(raw.compactGrids);
+          EventManager.setAll(raw.events||[]);HolidayLoader.setAll(raw.holidays||[]);
+          if(raw.branding)BrandingManager.setState(raw.branding);
+          App.onRangeChange();UIRenderer.renderEventsList();MobileUI.syncToDrawer();
+          Toast.show('Import successful.','success');
+        }catch(err){Toast.show('Import failed: '+err.message,'error');}
+      };
+    };
+    reader.readAsText(file);ev.target.value='';
+  }
+  return {exportJSON,importJSON};
+})();
+
+/* ============================================================
+   MODULE 15: PrintHandler
+============================================================ */
+const PrintHandler = (() => {
+  function print(){
+    const bd=document.createElement('div');bd.className='modal-backdrop no-print';
+    bd.innerHTML=`<div class="modal"><h2>⎙ Before You Print</h2><p>Most settings are preset automatically. One item needs manual attention:</p><ul class="print-checklist"><li><span class="ck-icon ck-auto">✓</span><div><strong>Paper: A4, Portrait, Margins: None</strong><span>Set automatically</span></div></li><li><span class="ck-icon ck-manual">!</span><div><strong>Background graphics: ON</strong><span>Tick this under "More settings" — required for photos and colours to print correctly.</span></div></li><li><span class="ck-icon ck-auto">✓</span><div><strong>Best quality tip</strong><span>Save as PDF first, then print from a photo app for true colour accuracy on photo paper.</span></div></li></ul><div class="modal-btns"><button onclick="this.closest('.modal-backdrop').remove()">Cancel</button><button class="primary" id="doPrint">Open Print Dialog</button></div></div>`;
+    document.body.appendChild(bd);bd.addEventListener('click',e=>{if(e.target===bd)bd.remove();});
+    document.getElementById('doPrint').onclick=()=>{bd.remove();setTimeout(()=>window.print(),300);};
+  }
+  return {print};
+})();
+
+/* ============================================================
+   MODULE 16: Toast
+============================================================ */
+const Toast = (() => {
+  function show(msg,type='info'){const c=document.getElementById('toastContainer');const t=document.createElement('div');t.className=`toast ${type}`;t.textContent=msg;c.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(()=>t.remove(),300);},3500);}
+  return {show};
+})();
+
+/* ============================================================
+   MODULE 17: MobileUI
+   Bottom drawer with Month + Settings tabs.
+   Month tab: full photo editor (upload, template, pan, caption).
+   Settings tab: range, month list, holidays, actions.
+============================================================ */
+const MobileUI = (() => {
+  let drawerOpen  = false;
+  let activeTab   = 'settings'; // 'month' or 'settings'
+  let slotCache   = {};         // cache rendered photo slots per month key
+
+  function isMobile(){ return window.innerWidth <= 768; }
+
+  /* ---- Scaling ---- */
+  function scalePages(){
+    if(!isMobile()){ document.querySelectorAll('.cal-page').forEach(p=>{p.style.transform='';p.style.marginBottom='';});return; }
+    const available = window.innerWidth - 16;
+    const scale = available / 794;
+    document.querySelectorAll('.cal-page').forEach(p=>{
+      p.style.transform = `scale(${scale})`;
+      p.style.transformOrigin = 'top center';
+      p.style.marginBottom = `${-(1123*(1-scale))}px`;
+    });
+  }
+
+  /* ---- Tab switching ---- */
+  function switchTab(tab){
+    activeTab = tab;
+    document.getElementById('drawerTabMonth').classList.toggle('active', tab==='month');
+    document.getElementById('drawerTabSettings').classList.toggle('active', tab==='settings');
+    document.getElementById('drawerPanelMonth').classList.toggle('active', tab==='month');
+    document.getElementById('drawerPanelSettings').classList.toggle('active', tab==='settings');
+    if(tab==='month') renderMonthEditor();
+  }
+
+  /* ---- Drawer open/close ---- */
+  function toggleDrawer(){ drawerOpen ? closeDrawer() : openDrawer(); }
+
+  function openDrawer(){
+    drawerOpen = true;
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('drawerBackdrop').classList.add('open');
+    // Render active tab content on open
+    if(activeTab==='month') renderMonthEditor();
+    else updateMobileMonthList();
+  }
+
+  function closeDrawer(){
+    drawerOpen = false;
+    document.getElementById('drawer').classList.remove('open');
+    document.getElementById('drawerBackdrop').classList.remove('open');
+  }
+
+  /* ---- Month editor in drawer ---- */
+  function renderMonthEditor(){
+    const sm  = parseInt(document.getElementById('startMonth').value);
+    const sy  = parseInt(document.getElementById('startYear').value);
+    const cnt = parseInt(document.getElementById('monthCount').value);
+    const range = CalendarEngine.buildRange(sy, sm, cnt);
+    const idx   = UIRenderer.getSelectedIdx();
+    const r     = range[idx] || range[0];
+    if(!r) return;
+
+    // Title
+    const titleEl = document.getElementById('mEditorTitle');
+    if(titleEl) titleEl.textContent = CONFIG.monthNames[r.month]+' '+r.year;
+
+    // Template grid
+    renderMobileTemplateGrid(r, idx);
+
+    // Photo slots
+    renderMobilePhotoSlots(r, idx);
+
+    // Caption
+    const capEl = document.getElementById('mCaptionInput');
+    if(capEl) capEl.value = App.getCaptions()[idx] || '';
+
+    // Compact grid
+    const cgEl = document.getElementById('mCompactGrid');
+    if(cgEl) cgEl.checked = App.isCompact(idx);
+  }
+
+  function renderMobileTemplateGrid(r, idx){
+    const grid = document.getElementById('mTemplateGrid');
+    if(!grid) return;
+    grid.innerHTML = '';
+    const cur = App.getTemplates()[idx] || CONFIG.templates[0].id;
+    CONFIG.templates.forEach(tpl=>{
+      const opt = document.createElement('div');
+      opt.className = 'mobile-template-opt'+(tpl.id===cur?' selected':'');
+      opt.onclick = ()=>{
+        App.setTemplate(idx, tpl.id);
+        slotCache = {}; // clear cache on template change
+        renderMobileTemplateGrid(r, idx);
+        renderMobilePhotoSlots(r, idx);
+        UIRenderer.renderAll();
+      };
+      const ic = document.createElement('div'); ic.className='t-icon'; ic.textContent=tpl.icon;
+      const lb = document.createElement('div'); lb.className='t-label'; lb.textContent=tpl.label;
+      opt.appendChild(ic); opt.appendChild(lb);
+      grid.appendChild(opt);
+    });
+  }
+
+  function renderMobilePhotoSlots(r, idx){
+    const container = document.getElementById('mPhotoSlots');
+    if(!container) return;
+    container.innerHTML = '';
+
+    const tplId = App.getTemplates()[idx] || CONFIG.templates[0].id;
+    const tpl   = CONFIG.templates.find(t=>t.id===tplId) || CONFIG.templates[0];
+    const labels = ['Main photo','Side 1','Side 2','Side 3'];
+
+    for(let s=0; s<tpl.slotCount; s++){
+      const slotDiv = document.createElement('div');
+      slotDiv.className = 'mobile-photo-slot';
+
+      const lbl = document.createElement('div');
+      lbl.className = 'slot-lbl';
+      lbl.textContent = labels[s];
+      slotDiv.appendChild(lbl);
+
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file'; fileInput.accept = 'image/*';
+      fileInput.onchange = async ev=>{
+        const file = ev.target.files[0]; if(!file) return;
+        if(!file.type.startsWith('image/')){ Toast.show('Only image files accepted.','error'); return; }
+        const reader = new FileReader();
+        reader.onload = async re=>{
+          await PhotoManager.savePhoto(r.year,r.month,s,re.target.result);
+          await PhotoManager.savePZ(r.year,r.month,s,{x:0,y:0,scale:1,_userSet:false});
+          slotCache = {};
+          renderMobilePhotoSlots(r,idx);
+          UIRenderer.renderAll();
+          Toast.show('Photo saved.','success');
+        };
+        reader.readAsDataURL(file);
+      };
+      slotDiv.appendChild(fileInput);
+
+      // Load photo async
+      PhotoManager.loadPhoto(r.year,r.month,s).then(async dataURL=>{
+        if(dataURL){
+          slotDiv.classList.add('has-image');
+
+          // Thumbnail
+          const tw = document.createElement('div'); tw.className='mobile-thumb-wrap';
+          const ti = document.createElement('img'); ti.src=dataURL; ti.alt=labels[s];
+          tw.appendChild(ti); slotDiv.appendChild(tw);
+
+          // Attach pan/zoom to thumbnail
+          const savedPZ = await PhotoManager.loadPZ(r.year,r.month,s);
+          const pzCtrl  = PanZoom.attach(tw,ti,savedPZ,async st=>{
+            await PhotoManager.savePZ(r.year,r.month,s,st);
+            UIRenderer.renderAll();
+          });
+
+          // Controls
+          const ctrl = document.createElement('div'); ctrl.className='mobile-slot-controls';
+
+          const zIn  = document.createElement('button'); zIn.textContent='+';  zIn.onclick=e=>{e.stopPropagation();pzCtrl.zoom(1.15);};
+          const zOut = document.createElement('button'); zOut.textContent='−'; zOut.onclick=e=>{e.stopPropagation();pzCtrl.zoom(0.87);};
+          const fit  = document.createElement('button'); fit.textContent='Fit'; fit.onclick=e=>{e.stopPropagation();pzCtrl.reset();};
+          const fill = document.createElement('button'); fill.textContent='Fill'; fill.onclick=e=>{e.stopPropagation();pzCtrl.cover();};
+
+          // Pan-lock toggle
+          const lockKey = `panlock_${r.year}_${r.month}_${s}`;
+          const lockBtn = document.createElement('button');
+          lockBtn.className = 'pan-lock-btn';
+          const isUnlocked = sessionStorage.getItem(lockKey)==='1';
+          lockBtn.textContent = isUnlocked?'🔓 Pan on':'🔒 Pan off';
+          if(isUnlocked) lockBtn.classList.add('unlocked');
+          lockBtn.onclick = e=>{
+            e.stopPropagation();
+            const nu = sessionStorage.getItem(lockKey)!=='1';
+            sessionStorage.setItem(lockKey, nu?'1':'0');
+            lockBtn.textContent = nu?'🔓 Pan on':'🔒 Pan off';
+            nu?lockBtn.classList.add('unlocked'):lockBtn.classList.remove('unlocked');
+            UIRenderer.renderAll();
+          };
+
+          const del = document.createElement('button'); del.textContent='✕ Remove'; del.className='danger';
+          del.onclick = async e=>{
+            e.stopPropagation();
+            await PhotoManager.deletePhoto(r.year,r.month,s);
+            slotCache = {};
+            renderMobilePhotoSlots(r,idx);
+            UIRenderer.renderAll();
+          };
+
+          ctrl.appendChild(zIn); ctrl.appendChild(zOut); ctrl.appendChild(fit);
+          ctrl.appendChild(fill); ctrl.appendChild(lockBtn); ctrl.appendChild(del);
+          slotDiv.appendChild(ctrl);
+
+          // Quality warning
+          const qw = document.createElement('div'); qw.className='quality-warn'; slotDiv.appendChild(qw);
+          QualityChecker.check(dataURL, s===0?'main':'side').then(res=>{
+            if(res==='warn'){qw.className='quality-warn warn-amber';qw.textContent='⚠ Borderline resolution.';}
+            else if(res==='low'){qw.className='quality-warn warn-red';qw.textContent='⛔ Too low for photo-paper print.';}
+          });
+
+        }else{
+          // Upload prompt
+          const ph = document.createElement('div'); ph.className='mobile-upload-prompt';
+          ph.textContent = '+ Tap to upload '+labels[s].toLowerCase();
+          ph.onclick = ()=>fileInput.click();
+          slotDiv.appendChild(ph);
+        }
+      });
+
+      container.appendChild(slotDiv);
+    }
+  }
+
+  /* Called when mobile caption textarea changes */
+  function onMobileCaption(val){
+    const idx = UIRenderer.getSelectedIdx();
+    App.getCaptions()[idx] = val.slice(0, CONFIG.maxCaptionLen);
+    UIRenderer.renderAll();
+  }
+
+  /* Called when mobile compact-grid checkbox changes */
+  function onMobileCompact(checked){
+    App.onCompactChange(checked);
+    // Keep desktop checkbox in sync
+    const deskEl = document.getElementById('compactGrid');
+    if(deskEl) deskEl.checked = checked;
+  }
+
+  /* ---- Sync helpers ---- */
+  function syncFromDrawer(){
+    const mm=document.getElementById('mStartMonth');
+    const my=document.getElementById('mStartYear');
+    const mc=document.getElementById('mMonthCount');
+    if(!mm||!my||!mc) return;
+    document.getElementById('startMonth').value = mm.value;
+    document.getElementById('startYear').value  = my.value;
+    document.getElementById('monthCount').value = mc.value;
+    App.onRangeChange();
+  }
+
+  function syncToDrawer(){
+    const mm=document.getElementById('mStartMonth');
+    const my=document.getElementById('mStartYear');
+    const mc=document.getElementById('mMonthCount');
+    if(!mm||!my||!mc) return;
+    mm.value = document.getElementById('startMonth').value;
+    my.value = document.getElementById('startYear').value;
+    mc.value = document.getElementById('monthCount').value;
+    updateMobileMonthList();
+    updateMobileRangeLabel();
+    // Sync holiday status to drawer
+    const mhs = document.getElementById('mHolidayStatus');
+    const dhs = document.getElementById('holidayStatus');
+    if(mhs && dhs) mhs.textContent = dhs.textContent;
+  }
+
+  function updateMobileMonthList(){
+    const list = document.getElementById('mobileMonthList');
+    if(!list) return;
+    const sm  = parseInt(document.getElementById('startMonth').value);
+    const sy  = parseInt(document.getElementById('startYear').value);
+    const cnt = parseInt(document.getElementById('monthCount').value);
+    const range = CalendarEngine.buildRange(sy,sm,cnt);
+    list.innerHTML = '';
+    range.forEach((r,i)=>{
+      const item = document.createElement('div');
+      item.className = 'mobile-month-item'+(i===UIRenderer.getSelectedIdx()?' active':'');
+      item.onclick = ()=>{
+        UIRenderer.setSelectedIdx(i);
+        updateMobileMonthList();
+        UIRenderer.renderAll();
+        slotCache = {};
+        // Switch to Month tab to show editor for selected month
+        switchTab('month');
+      };
+      const nm = document.createElement('span');
+      nm.textContent = CONFIG.monthNames[r.month]+' '+r.year;
+      const dot = document.createElement('span'); dot.className='photo-dot';
+      PhotoManager.loadPhoto(r.year,r.month,0).then(d=>{ if(d)dot.textContent='📷'; });
+      item.appendChild(nm); item.appendChild(dot);
+      list.appendChild(item);
+    });
+  }
+
+  function updateMobileRangeLabel(){
+    const sm  = parseInt(document.getElementById('startMonth').value);
+    const sy  = parseInt(document.getElementById('startYear').value);
+    const cnt = parseInt(document.getElementById('monthCount').value);
+    const range = CalendarEngine.buildRange(sy,sm,cnt);
+    const label = CalendarEngine.rangeLabel(range);
+    ['mRangeIndicator','mRangeIndicator2'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.textContent=label;
+    });
+  }
+
+  function initDrawerYears(){
+    const sel = document.getElementById('mStartYear');
+    for(let y=CONFIG.yearMin;y<=CONFIG.yearMax;y++){
+      const o=document.createElement('option');o.value=y;o.textContent=y;
+      if(y===CONFIG.defaultYear)o.selected=true;sel.appendChild(o);
+    }
+  }
+
+  function applyLayout(){
+    const mobile = isMobile();
+    const mPrint = document.querySelector('.mobile-only');
+    if(mPrint) mPrint.style.display = mobile ? 'block' : 'none';
+  }
+
+  window.addEventListener('resize',()=>{ scalePages(); applyLayout(); syncToDrawer(); });
+
+  return {
+    isMobile, scalePages, switchTab,
+    toggleDrawer, openDrawer, closeDrawer,
+    syncFromDrawer, syncToDrawer,
+    updateMobileMonthList, updateMobileRangeLabel,
+    initDrawerYears, applyLayout,
+    renderMonthEditor, onMobileCaption, onMobileCompact,
+  };
+})();
+
+/* ============================================================
+   MODULE 18: UIRenderer
+============================================================ */
+const UIRenderer = (() => {
+  let selectedIdx = 0;
+
+  function getSelectedIdx(){ return selectedIdx; }
+  function setSelectedIdx(i){ selectedIdx=i; }
+
+  function initYearSelect(){
+    const sel=document.getElementById('startYear');
+    for(let y=CONFIG.yearMin;y<=CONFIG.yearMax;y++){const o=document.createElement('option');o.value=y;o.textContent=y;if(y===CONFIG.defaultYear)o.selected=true;sel.appendChild(o);}
+  }
+
+  function renderMonthList(range){
+    const list=document.getElementById('monthList');list.innerHTML='';
+    // Open months accordion if more than 1 month
+    if(range.length>1){const acc=document.getElementById('accMonths');if(acc&&!acc.classList.contains('open'))acc.classList.add('open');}
+    range.forEach((r,i)=>{
+      const item=document.createElement('div');item.className='month-item'+(i===selectedIdx?' active':'');
+      item.onclick=()=>{selectedIdx=i;renderMonthList(range);renderMonthEditor(r,i);};
+      const nm=document.createElement('span');nm.textContent=`${CONFIG.monthNames[r.month]} ${r.year}`;
+      const dot=document.createElement('span');dot.className='photo-dot';PhotoManager.loadPhoto(r.year,r.month,0).then(d=>{if(d)dot.textContent='📷';});
+      item.appendChild(nm);item.appendChild(dot);list.appendChild(item);
+    });
+    MobileUI.updateMobileMonthList();
+  }
+
+  function renderMonthEditor(r,idx){
+    document.getElementById('editorTitle').textContent=`${CONFIG.monthNames[r.month]} ${r.year}`;
+    renderTemplateGrid(r,idx);
+    document.getElementById('captionInput').value=App.getCaptions()[idx]||'';
+    // Sync desktop compact-grid checkbox
+    const cg=document.getElementById('compactGrid');
+    if(cg) cg.checked = App.isCompact(idx);
+    // Sync mobile compact-grid checkbox
+    const mcg=document.getElementById('mCompactGrid');
+    if(mcg) mcg.checked = App.isCompact(idx);
+  }
+
+  function renderTemplateGrid(r,idx){
+    const grid=document.getElementById('templateGrid');if(!grid)return;grid.innerHTML='';
+    const cur=App.getTemplates()[idx]||CONFIG.templates[0].id;
+
+    /* Visual diagram builder for each template */
+    function makeDiagram(tplId){
+      const d=document.createElement('div');d.className='tpl-diagram';
+      const main=document.createElement('div');main.className='tpl-main';main.style.flex='1';
+      d.appendChild(main);
+      if(tplId==='1plus2'||tplId==='1plus3'){
+        const sides=document.createElement('div');sides.className='tpl-sides';
+        const count=tplId==='1plus2'?2:3;
+        for(let i=0;i<count;i++){const s=document.createElement('div');s.className='tpl-side';sides.appendChild(s);}
+        d.appendChild(sides);
+      }
+      return d;
+    }
+
+    CONFIG.templates.forEach(tpl=>{
+      const opt=document.createElement('div');opt.className='template-option'+(tpl.id===cur?' selected':'');
+      opt.onclick=()=>{App.setTemplate(idx,tpl.id);renderTemplateGrid(r,idx);renderPhotoSlots(r,idx);renderAll();};
+      opt.appendChild(makeDiagram(tpl.id));
+      const lb=document.createElement('div');lb.className='t-label';lb.textContent=tpl.label;opt.appendChild(lb);
+      grid.appendChild(opt);
+    });
+    renderPhotoSlots(r,idx);
+  }
+
+  function renderPhotoSlots(r,idx){
+    const container=document.getElementById('photoSlots');container.innerHTML='';
+    const tplId=App.getTemplates()[idx]||CONFIG.templates[0].id;
+    const tpl=CONFIG.templates.find(t=>t.id===tplId)||CONFIG.templates[0];
+    const labels=['Main photo','Side photo 1','Side photo 2','Side photo 3'];
+
+    for(let s=0;s<tpl.slotCount;s++){
+      const slotType=s===0?'main':'side';
+      const wrap=document.createElement('div');wrap.className='photo-slot-wrap';
+      const fileInput=document.createElement('input');fileInput.type='file';fileInput.accept='image/*';
+      fileInput.onchange=async ev=>{
+        const file=ev.target.files[0];if(!file)return;
+        if(!file.type.startsWith('image/')){Toast.show('Only image files accepted.','error');return;}
+        const reader=new FileReader();
+        reader.onload=async re=>{
+          await PhotoManager.savePhoto(r.year,r.month,s,re.target.result);
+          await PhotoManager.savePZ(r.year,r.month,s,{x:0,y:0,scale:1,_userSet:false});
+          renderPhotoSlots(r,idx);renderAll();Toast.show('Photo saved.','success');
+        };
+        reader.readAsDataURL(file);
+      };
+      wrap.appendChild(fileInput);
+
+      PhotoManager.loadPhoto(r.year,r.month,s).then(async dataURL=>{
+        if(dataURL){
+          wrap.classList.add('has-image');
+          const slotLbl=document.createElement('div');slotLbl.className='slot-label';slotLbl.textContent=labels[s];wrap.appendChild(slotLbl);
+          const tw=document.createElement('div');tw.className='thumb-wrap';
+          const ti=document.createElement('img');ti.src=dataURL;ti.alt=labels[s];
+          tw.appendChild(ti);wrap.appendChild(tw);
+          const savedPZ=await PhotoManager.loadPZ(r.year,r.month,s);
+          const pzCtrl=PanZoom.attach(tw,ti,savedPZ,async st=>{await PhotoManager.savePZ(r.year,r.month,s,st);renderAll();});
+
+          const ctrl=document.createElement('div');ctrl.className='slot-controls';
+          const zIn=document.createElement('button');zIn.textContent='+';zIn.title='Zoom in';zIn.onclick=e=>{e.stopPropagation();pzCtrl.zoom(1.15);};
+          const zOut=document.createElement('button');zOut.textContent='−';zOut.title='Zoom out';zOut.onclick=e=>{e.stopPropagation();pzCtrl.zoom(0.87);};
+          const fit=document.createElement('button');fit.textContent='Fit';fit.title='Show whole photo';fit.onclick=e=>{e.stopPropagation();pzCtrl.reset();};
+          const cov=document.createElement('button');cov.textContent='Fill';cov.title='Fill frame';cov.onclick=e=>{e.stopPropagation();pzCtrl.cover();};
+
+          const lockKey=`panlock_${r.year}_${r.month}_${s}`;
+          const lockBtn=document.createElement('button');
+          lockBtn.className='pan-lock-btn';
+          const isUnlocked=sessionStorage.getItem(lockKey)==='1';
+          lockBtn.textContent=isUnlocked?'🔓 Move photo':'🔒 Move photo';
+          if(isUnlocked)lockBtn.classList.add('unlocked');
+          lockBtn.onclick=e=>{
+            e.stopPropagation();
+            const nu=sessionStorage.getItem(lockKey)!=='1';
+            sessionStorage.setItem(lockKey,nu?'1':'0');
+            lockBtn.textContent=nu?'🔓 Move photo':'🔒 Move photo';
+            nu?lockBtn.classList.add('unlocked'):lockBtn.classList.remove('unlocked');
+            renderAll();
+          };
+
+          const del=document.createElement('button');del.textContent='✕ Remove';del.className='danger';
+          del.onclick=async e=>{e.stopPropagation();await PhotoManager.deletePhoto(r.year,r.month,s);renderPhotoSlots(r,idx);renderAll();};
+
+          ctrl.appendChild(zIn);ctrl.appendChild(zOut);ctrl.appendChild(fit);ctrl.appendChild(cov);ctrl.appendChild(lockBtn);ctrl.appendChild(del);
+          wrap.appendChild(ctrl);
+
+          const qw=document.createElement('div');qw.className='quality-warn';wrap.appendChild(qw);
+          QualityChecker.check(dataURL,slotType).then(res=>{
+            if(res==='warn'){qw.className='quality-warn warn-amber';qw.textContent='⚠ Photo may print soft — try a higher resolution image.';}
+            else if(res==='low'){qw.className='quality-warn warn-red';qw.textContent='⛔ Photo resolution too low for quality print.';}
+          });
+        }else{
+          /* Upload prompt with first-use pulse on the main slot */
+          wrap.classList.add('clickable');
+          const ph=document.createElement('div');ph.className='upload-prompt';
+          const icon=document.createElement('div');icon.className='up-icon';icon.textContent='🖼';
+          const txt=document.createElement('div');txt.className='up-text';
+          txt.textContent=s===0?'No photo yet':'No photo yet for '+labels[s].toLowerCase();
+          const btn=document.createElement('button');btn.className='primary';
+          btn.textContent=s===0?'+ Choose photo':'+ Add '+labels[s].toLowerCase();
+          if(s===0)UI.setPulse(btn, true);
+          btn.onclick=e=>{e.stopPropagation();fileInput.click();};
+          ph.appendChild(icon);ph.appendChild(txt);ph.appendChild(btn);
+          wrap.appendChild(ph);
+          wrap.onclick=()=>fileInput.click();
+        }
+      });
+      container.appendChild(wrap);
+    }
+  }
+
+  function renderEventsList(){
+    const list=document.getElementById('eventsList');list.innerHTML='';
+    const evs=EventManager.getAll();
+    UI.updateEventBadge(evs.length);
+    if(!evs.length){const e=document.createElement('div');e.className='text-muted';e.textContent='No events added yet.';list.appendChild(e);return;}
+    evs.forEach(ev=>{
+      const item=document.createElement('div');item.className='event-item';
+      const info=document.createElement('div');info.className='ev-info';
+      const ds=document.createElement('div');ds.className='ev-date';
+      ds.textContent=(ev.endDate?DatePicker.formatDate(ev.startDate)+' → '+DatePicker.formatDate(ev.endDate):DatePicker.formatDate(ev.startDate))+(ev.recurring?' (annual)':'');
+      const ts=document.createElement('div');ts.textContent=ev.text;
+      info.appendChild(ds);info.appendChild(ts);
+      const del=document.createElement('button');del.textContent='✕';del.className='danger';del.onclick=()=>EventManager.removeEvent(ev.id);
+      item.appendChild(info);item.appendChild(del);list.appendChild(item);
+    });
+  }
+
+  async function renderAll(){
+    const sm=parseInt(document.getElementById('startMonth').value);
+    const sy=parseInt(document.getElementById('startYear').value);
+    const cnt=parseInt(document.getElementById('monthCount').value);
+    const st=document.getElementById('showToday').checked;
+    const range=CalendarEngine.buildRange(sy,sm,cnt);
+    document.getElementById('rangeIndicator').textContent=CalendarEngine.rangeLabel(range);
+    renderMonthList(range);
+    if(range[selectedIdx])renderMonthEditor(range[selectedIdx],selectedIdx);
+    const preview=document.getElementById('previewArea');preview.innerHTML='';
+    for(let i=0;i<range.length;i++){
+      const wrapper=document.createElement('div');wrapper.className='cal-page-wrapper';
+      const page=await buildPage(range[i].year,range[i].month,i,st,range[i]);
+      wrapper.appendChild(page);preview.appendChild(wrapper);
+    }
+    MobileUI.syncToDrawer();
+    MobileUI.updateMobileRangeLabel();
+    // If mobile drawer is open on month tab, refresh the editor
+    if(MobileUI.isMobile && document.getElementById('drawerPanelMonth')?.classList.contains('active')){
+      MobileUI.renderMonthEditor();
+    }
+    // Apply mobile scaling after DOM is updated
+    setTimeout(()=>MobileUI.scalePages(),50);
+  }
+
+  async function buildPage(year,month,idx,showToday,rangeItem){
+    const page=document.createElement('div');page.className='cal-page';
+    const tplId=App.getTemplates()[idx]||CONFIG.templates[0].id;
+    const tpl=CONFIG.templates.find(t=>t.id===tplId)||CONFIG.templates[0];
+    const fs=FontManager.getStack(FontManager.getCurrent());
+
+    /* Photo area */
+    const photoArea=document.createElement('div');photoArea.className=`cal-photo-area tmpl-${tplId}`;
+
+    for(let s=0;s<tpl.slotCount;s++){
+      const dataURL=await PhotoManager.loadPhoto(year,month,s);
+      const pzState=await PhotoManager.loadPZ(year,month,s);
+      const pzDiv=document.createElement('div');pzDiv.className='pz-container';
+
+      if(dataURL){
+        const img=document.createElement('img');img.src=dataURL;img.alt='';img.style.imageRendering='high-quality';img.style.maxWidth='none';
+
+        img.onload=()=>{
+          img.style.width=img.naturalWidth+'px';img.style.height=img.naturalHeight+'px';
+          // Use cover (fill) as default. Restore saved state if user has adjusted.
+          if(pzState&&pzState._userSet){
+            img.style.transform=`translate(${pzState.x}px,${pzState.y}px) scale(${pzState.scale})`;
+          }else{
+            const cW=pzDiv.offsetWidth||(s===0?529:265);
+            const cH=pzDiv.offsetHeight||(s===0?480:160);
+            const cover=PanZoom.computeCoverState(img.naturalWidth,img.naturalHeight,cW,cH);
+            img.style.transform=`translate(${cover.x}px,${cover.y}px) scale(${cover.scale})`;
+          }
+        };
+
+        /* Attach pan/zoom to preview.
+           Lock state stored in sessionStorage per slot.
+           Unlocked only when user explicitly enables via sidebar toggle. */
+        const lockKey=`panlock_${year}_${month}_${s}`;
+        const isUnlocked=sessionStorage.getItem(lockKey)==='1';
+        if(isUnlocked) pzDiv.classList.add('pz-unlocked');
+
+        const previewPZ=PanZoom.attach(pzDiv,img,pzState,async st=>{
+          await PhotoManager.savePZ(year,month,s,st);
+        }, /* locked= */ !isUnlocked);
+
+        pzDiv.appendChild(img);
+      }else{
+        /* Clickable placeholder */
+        const ph=document.createElement('div');ph.className='photo-placeholder';
+        const ic=document.createElement('div');ic.className='ph-icon';ic.textContent='🖼';
+        const tx=document.createElement('span');tx.textContent=s===0?'Click to upload photo':`Click to upload photo ${s+1}`;
+        const ht=document.createElement('span');ht.className='ph-hint';ht.textContent='or use the sidebar';
+        ph.appendChild(ic);ph.appendChild(tx);ph.appendChild(ht);
+        const fi=document.createElement('input');fi.type='file';fi.accept='image/*';fi.style.display='none';
+        fi.onchange=async ev=>{
+          const file=ev.target.files[0];if(!file)return;
+          if(!file.type.startsWith('image/')){Toast.show('Only image files accepted.','error');return;}
+          const reader=new FileReader();
+          reader.onload=async re=>{await PhotoManager.savePhoto(rangeItem.year,rangeItem.month,s,re.target.result);await PhotoManager.savePZ(rangeItem.year,rangeItem.month,s,{x:0,y:0,scale:1,_userSet:false});renderAll();Toast.show('Photo saved.','success');};
+          reader.readAsDataURL(file);
+        };
+        ph.appendChild(fi);ph.onclick=()=>fi.click();pzDiv.appendChild(ph);
+      }
+      photoArea.appendChild(pzDiv);
+    }
+    page.appendChild(photoArea);
+
+    /* Caption */
+    const cap=App.getCaptions()[idx]||'';
+    const capBar=document.createElement('div');capBar.className='cal-caption';if(cap)capBar.textContent=cap;
+    page.appendChild(capBar);
+
+    /* Grid */
+    const gridArea=document.createElement('div');gridArea.className='cal-grid-area';gridArea.style.fontFamily=fs;
+    const hdr=document.createElement('div');hdr.className='cal-month-header';
+    const mn=document.createElement('div');mn.className='cal-month-name';mn.textContent=CONFIG.monthNames[month];
+    const yl=document.createElement('div');yl.className='cal-year-label';yl.textContent=year;
+    hdr.appendChild(mn);hdr.appendChild(yl);gridArea.appendChild(hdr);
+    const dowRow=document.createElement('div');dowRow.className='cal-dow-row';
+    CONFIG.daysOfWeek.forEach(d=>{const c=document.createElement('div');c.className='cal-dow-cell';c.textContent=d;dowRow.appendChild(c);});
+    gridArea.appendChild(dowRow);
+    const grid=document.createElement('div');grid.className='cal-dates-grid';
+    const cells=CalendarEngine.getMonthGrid(year,month);
+    const todayDay=showToday?CalendarEngine.getTodayDay(year,month):null;
+
+    /* Detect how many rows are actually needed.
+       Each row = 7 cells. Find the last row that has any non-zero day. */
+    const compact=App.isCompact(idx);
+    let activeRows=0;
+    for(let row=0;row<6;row++){
+      const rowCells=cells.slice(row*7,(row+1)*7);
+      if(rowCells.some(d=>d>0)) activeRows=row+1;
+    }
+    /* Total rows always 6 in grid — but we may hide trailing empty ones */
+    const rowsToShow=compact?activeRows:6;
+
+    /* Set explicit grid-template-rows so hidden rows collapse to zero */
+    grid.style.gridTemplateRows=`repeat(${rowsToShow},1fr)`;
+
+    cells.forEach((day,cellIdx)=>{
+      const rowIdx=Math.floor(cellIdx/7);
+      /* Skip cells in rows beyond what we're showing */
+      if(rowIdx>=rowsToShow) return;
+      const cell=document.createElement('div');cell.className='cal-date-cell'+(day===0?' empty':'')+(day===todayDay?' today':'');
+      if(day>0){
+        const n=document.createElement('span');n.className='cal-date-num';n.textContent=day;cell.appendChild(n);
+        HolidayLoader.getHolidaysForDay(year,month,day).forEach(h=>{const e=document.createElement('div');e.className='cal-event holiday';e.textContent=h.title;e.title=h.title;cell.appendChild(e);});
+        EventManager.getEventsForDay(year,month,day).forEach(ev=>{const e=document.createElement('div');e.className='cal-event '+(EventManager.isRange(ev)?'special-range':'special');e.textContent=ev.text;e.title=ev.text;cell.appendChild(e);});
+      }
+      grid.appendChild(cell);
+    });
+    gridArea.appendChild(grid);page.appendChild(gridArea);
+    return page;
+  }
+
+  /* Lightweight: refresh just one sidebar thumbnail after preview pan */
+  function renderPhotoSlotThumb(year,month,slot){
+    const thumbWrap=document.querySelector(`#photoSlots .thumb-wrap:nth-of-type(${slot+1})`);
+    // Silently skip if sidebar not in view — full re-render not needed
+  }
+
+  return {initYearSelect,renderMonthList,renderMonthEditor,renderEventsList,renderAll,getSelectedIdx,setSelectedIdx};
+})();
+
+/* ============================================================
+   MODULE 19: App
+============================================================ */
+const App = (() => {
+  let captions={}, templates={}, compactGrids={};
+
+  const getCaptions    = ()    => captions;
+  const getTemplates   = ()    => templates;
+  const getCompactGrids= ()    => compactGrids;
+  const setCaptions    = c     => { captions=c||{}; };
+  const setTemplates   = t     => { templates=t||{}; };
+  const setCompactGrids= c     => { compactGrids=c||{}; };
+  const setTemplate    = (i,t) => { templates[i]=t; };
+
+  function onCaptionChange(v){
+    captions[UIRenderer.getSelectedIdx()]=v.slice(0,CONFIG.maxCaptionLen);
+    UIRenderer.renderAll();
+  }
+
+  /* Called when the compact-grid checkbox changes for the selected month */
+  function onCompactChange(checked){
+    compactGrids[UIRenderer.getSelectedIdx()] = checked;
+    UIRenderer.renderAll();
+  }
+
+  /* Returns whether compact mode is on for a given month index.
+     Default is true (compact on). */
+  function isCompact(idx){
+    return compactGrids[idx] !== false; // default true
+  }
+
+  function onRangeChange(){ UIRenderer.renderAll(); MobileUI.syncToDrawer(); }
+  const exportJSON        = ()  => ImportExport.exportJSON();
+  const triggerImportJSON = ()  => document.getElementById('importJSONInput').click();
+  const importJSON        = e   => ImportExport.importJSON(e);
+  const loadHolidays      = ()  => document.getElementById('importHolidaysInput').click();
+  async function clearAllPhotos(){ if(!confirm('Remove all stored photos?'))return; await PhotoManager.clearAll(); UIRenderer.renderAll(); Toast.show('Photos cleared.','success'); }
+  function clearAllEvents(){ if(!confirm('Remove all events?'))return; EventManager.clear(); }
+
+  async function init(){
+    try{await PhotoManager.init();}catch{Toast.show('IndexedDB unavailable — photos will not persist.','warn');}
+    UIRenderer.initYearSelect();
+    MobileUI.initDrawerYears();
+    FontManager.init();
+    HolidayLoader.updateStatus();
+    MobileUI.applyLayout();
+    document.getElementById('startMonth').value=CONFIG.defaultMonth;
+    document.getElementById('startYear').value=CONFIG.defaultYear;
+    document.getElementById('monthCount').value=CONFIG.defaultCount;
+    await UIRenderer.renderAll();
+    UIRenderer.renderEventsList();
+    MobileUI.syncToDrawer();
+  }
+
+  return {
+    getCaptions,getTemplates,getCompactGrids,isCompact,
+    setCaptions,setTemplates,setCompactGrids,
+    setTemplate,onCaptionChange,onCompactChange,onRangeChange,
+    exportJSON,triggerImportJSON,importJSON,loadHolidays,
+    clearAllPhotos,clearAllEvents,init
+  };
+})();
+
+/* Boot */
+document.addEventListener('DOMContentLoaded',()=>App.init());
+</script>
+</body>
+</html>
