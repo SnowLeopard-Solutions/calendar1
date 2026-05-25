@@ -561,73 +561,20 @@
 
     /* ── PRINT ───────────────────────────────────────────────────── */
     @media print {
-      /* Force exact colour reproduction including photos and backgrounds */
       *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
-
-      /* Clean page */
-      html,body{height:auto !important;overflow:visible !important;background:#fff !important;margin:0;padding:0;}
-
-      /* Hide all UI chrome */
+      body{background:#fff !important;margin:0;padding:0;}
       header,.toolbar,.sidebar,.toast-container,.modal-backdrop,
-      .drawer,.drawer-tab,.drawer-backdrop,.no-print,
-      .slot-controls,.quality-warn,.accordion-header{display:none !important;}
-
-      /* Layout reset — block flow for page breaks */
-      main{display:block;margin:0;padding:0;height:auto !important;overflow:visible !important;}
-      .preview-area{padding:0;display:block;overflow:visible;background:#fff;gap:0;height:auto !important;}
+      .drawer,.drawer-tab,.drawer-backdrop,.no-print{display:none !important;}
+      main{display:block;margin:0;padding:0;}
+      .preview-area{padding:0;display:block;overflow:visible;background:#fff;gap:0;}
       .cal-page-wrapper{display:block;width:100%;}
-
-      /* Calendar page — MUST clear transform so mobile scaling doesn't clip */
-      .cal-page{
-        transform:none !important;
-        -webkit-transform:none !important;
-        width:210mm !important;
-        height:297mm !important;
-        min-height:297mm !important;
-        max-height:297mm !important;
-        box-shadow:none !important;
-        border-radius:0 !important;
-        margin:0 !important; padding:0 !important;
-        page-break-after:always;
-        break-after:page;
-        overflow:hidden !important;
-        position:relative !important;
-      }
-
-      /* Photo and grid sections — explicit mm heights */
-      .cal-photo-area{
-        height:126mm !important;
-        min-height:126mm !important;
-      }
-      .cal-caption{
-        top:126mm !important;
-        height:9mm !important;
-        min-height:9mm !important;
-      }
-      .cal-grid-area{
-        top:135mm !important;
-        bottom:0 !important;
-        height:auto !important;
-        overflow:hidden !important;
-      }
-
-      /* Grid cells — ensure they have height */
-      .cal-dates-grid{
-        flex:1 !important;
-        min-height:0 !important;
-      }
-      .cal-date-cell{
-        min-height:20mm !important;
-      }
-
-      /* Hide placeholder UI elements */
-      .photo-placeholder{background:#f5f5f5 !important;cursor:default !important;}
-      .photo-placeholder *{display:none !important;}
+      .cal-page{transform:none !important;width:210mm;height:297mm;box-shadow:none;border-radius:0;margin:0;padding:0;page-break-after:always;break-after:page;overflow:hidden;}
+      .cal-photo-area{height:126mm !important;}
+      .cal-caption{top:126mm !important;height:9mm !important;}
+      .cal-grid-area{top:135mm !important;}
+      .photo-placeholder{background:#f5f5f5 !important;cursor:default;}
+      .photo-placeholder .ph-icon,.photo-placeholder span,.photo-placeholder .ph-hint{display:none;}
       .pz-container{cursor:default !important;}
-
-      /* Ensure month/year header is visible */
-      .cal-month-header{display:flex !important;}
-      .cal-dow-row{display:grid !important;}
     }
   </style>
 </head>
@@ -830,6 +777,10 @@
           <div style="height:1px;background:var(--border);"></div>
           <button onclick="App.clearAllPhotos()" class="danger w100">Clear all photos</button>
           <button onclick="App.clearAllEvents()" class="danger w100">Clear all events</button>
+          <div style="height:1px;background:var(--border);"></div>
+          <button onclick="App.startFresh()" class="danger w100" style="font-weight:bold;">
+            🔄 Start Fresh — clear everything
+          </button>
         </div>
       </div>
 
@@ -919,6 +870,7 @@
       <div class="mobile-row" style="margin-top:5px;">
         <button onclick="BrandingManager.editTitle()">Rename</button>
         <button onclick="App.clearAllPhotos()" class="danger">Clear Photos</button>
+        <button onclick="App.startFresh()" class="danger">🔄 Start Fresh</button>
       </div>
     </div>
     <button class="btn-print w100" onclick="PrintHandler.print()" style="margin-top:4px;">⎙ Print Calendar</button>
@@ -957,23 +909,20 @@ const UI = (() => {
     if (!isOpen) el.classList.add('open');
   }
 
-  /* More menu toggle (desktop header).
-     stopPropagation prevents the document click-outside listener
-     from immediately closing the menu that was just opened. */
-  function toggleMoreMenu(e) {
-    if (e) e.stopPropagation();
+  /* More menu toggle (desktop header) */
+  function toggleMoreMenu() {
     const menu = document.getElementById('moreMenu');
     if (!menu) return;
     menu.classList.toggle('open');
   }
 
-  /* Close more menu when clicking anywhere outside the wrap */
+  /* Close more menu when clicking outside */
   document.addEventListener('click', e => {
     const wrap = document.querySelector('.more-menu-wrap');
-    const menu = document.getElementById('moreMenu');
-    if (!menu || !menu.classList.contains('open')) return;
-    if (wrap && wrap.contains(e.target)) return; // click inside — ignore
-    menu.classList.remove('open');
+    if (wrap && !wrap.contains(e.target)) {
+      const menu = document.getElementById('moreMenu');
+      if (menu) menu.classList.remove('open');
+    }
   });
 
   /* Update event count badge */
@@ -1336,8 +1285,18 @@ const FontManager = (() => {
     {label:'Courier (Typewriter)',value:'courier',   stack:"'Courier New',monospace"},
   ];
   let current='georgia';
-  function init(){const sel=document.getElementById('fontSelect');FONTS.forEach(f=>{const o=document.createElement('option');o.value=f.value;o.textContent=f.label;sel.appendChild(o);});apply(current);}
-  function apply(val){const f=FONTS.find(x=>x.value===val)||FONTS[0];current=f.value;document.documentElement.style.setProperty('--font-ui',f.stack);document.documentElement.style.setProperty('--font-cal',f.stack);document.getElementById('fontSelect').value=current;UIRenderer.renderAll();}
+  /* Pass silent=true so init doesn't trigger a premature renderAll */
+  function init(){const sel=document.getElementById('fontSelect');FONTS.forEach(f=>{const o=document.createElement('option');o.value=f.value;o.textContent=f.label;sel.appendChild(o);});apply(current, true);}
+  /* silent=true during init — skips renderAll so it only fires once
+     at the end of init() with the correct month/year/count already set. */
+  function apply(val, silent=false){
+    const f=FONTS.find(x=>x.value===val)||FONTS[0];
+    current=f.value;
+    document.documentElement.style.setProperty('--font-ui',f.stack);
+    document.documentElement.style.setProperty('--font-cal',f.stack);
+    document.getElementById('fontSelect').value=current;
+    if(!silent) UIRenderer.renderAll();
+  }
   function getCurrent(){return current;}
   function getStack(v){return(FONTS.find(f=>f.value===v)||FONTS[0]).stack;}
   return {init,apply,getCurrent,getStack};
@@ -1731,7 +1690,7 @@ const MobileUI = (() => {
     document.getElementById('startMonth').value = mm.value;
     document.getElementById('startYear').value  = my.value;
     document.getElementById('monthCount').value = mc.value;
-    App.onRangeChange();
+    App.onRangeChange(); // saves to sessionStorage via onRangeChange
   }
 
   function syncToDrawer(){
@@ -1986,11 +1945,45 @@ const UIRenderer = (() => {
   }
 
   async function renderAll(){
-    const sm=parseInt(document.getElementById('startMonth').value);
-    const sy=parseInt(document.getElementById('startYear').value);
-    const cnt=parseInt(document.getElementById('monthCount').value);
+    /* ── Sanity check: correct any browser cache interference ──────
+       Before rendering, verify the select values are valid.
+       If startMonth is NaN or out of range (browser restored a bad
+       value), reset it to the current real month.
+       This catches the January bug where Chrome restores stale state. */
+    const smEl  = document.getElementById('startMonth');
+    const syEl  = document.getElementById('startYear');
+    const cntEl = document.getElementById('monthCount');
+    const now   = new Date();
+
+    let sm  = parseInt(smEl.value);
+    let sy  = parseInt(syEl.value);
+    let cnt = parseInt(cntEl.value);
+
+    // Fix month if invalid
+    if (isNaN(sm) || sm < 0 || sm > 11) {
+      sm = now.getMonth();
+      smEl.value = sm;
+    }
+    // Fix year if invalid or out of range
+    if (isNaN(sy) || sy < CONFIG.yearMin || sy > CONFIG.yearMax) {
+      sy = now.getFullYear();
+      syEl.value = sy;
+    }
+    // Fix count if invalid
+    if (isNaN(cnt) || cnt < 1 || cnt > 12) {
+      cnt = CONFIG.defaultCount;
+      cntEl.value = cnt;
+    }
+
     const st=document.getElementById('showToday').checked;
     const range=CalendarEngine.buildRange(sy,sm,cnt);
+
+    /* Double-check: range length must match cnt exactly */
+    if (range.length !== cnt) {
+      console.warn('Range mismatch — rebuilding with corrected values');
+      cnt = Math.min(cnt, 12);
+      cntEl.value = cnt;
+    }
     document.getElementById('rangeIndicator').textContent=CalendarEngine.rangeLabel(range);
     renderMonthList(range);
     if(range[selectedIdx])renderMonthEditor(range[selectedIdx],selectedIdx);
@@ -2161,7 +2154,17 @@ const App = (() => {
     return compactGrids[idx] !== false; // default true
   }
 
-  function onRangeChange(){ UIRenderer.renderAll(); MobileUI.syncToDrawer(); }
+  function onRangeChange(){
+    /* User deliberately changed the range — save their intent */
+    const sm  = document.getElementById('startMonth').value;
+    const sy  = document.getElementById('startYear').value;
+    const cnt = document.getElementById('monthCount').value;
+    sessionStorage.setItem('cal_sm',  sm);
+    sessionStorage.setItem('cal_sy',  sy);
+    sessionStorage.setItem('cal_cnt', cnt);
+    UIRenderer.renderAll();
+    MobileUI.syncToDrawer();
+  }
   const exportJSON        = ()  => ImportExport.exportJSON();
   const triggerImportJSON = ()  => document.getElementById('importJSONInput').click();
   const importJSON        = e   => ImportExport.importJSON(e);
@@ -2176,12 +2179,48 @@ const App = (() => {
     FontManager.init();
     HolidayLoader.updateStatus();
     MobileUI.applyLayout();
-    document.getElementById('startMonth').value=CONFIG.defaultMonth;
-    document.getElementById('startYear').value=CONFIG.defaultYear;
-    document.getElementById('monthCount').value=CONFIG.defaultCount;
+    /* Restore user's last deliberate choice from sessionStorage.
+       If nothing stored (first ever load), default to current month only.
+       This defeats browser form cache — we always set values explicitly. */
+    const savedSM  = sessionStorage.getItem('cal_sm');
+    const savedSY  = sessionStorage.getItem('cal_sy');
+    const savedCnt = sessionStorage.getItem('cal_cnt');
+
+    const now = new Date();
+    const sm  = savedSM  !== null ? parseInt(savedSM)  : now.getMonth();
+    const sy  = savedSY  !== null ? parseInt(savedSY)  : now.getFullYear();
+    const cnt = savedCnt !== null ? parseInt(savedCnt) : 1;
+
+    document.getElementById('startMonth').value = sm;
+    document.getElementById('startYear').value  = sy;
+    document.getElementById('monthCount').value = cnt;
+
     await UIRenderer.renderAll();
     UIRenderer.renderEventsList();
     MobileUI.syncToDrawer();
+  }
+
+  /* Clear absolutely everything and reload the page fresh.
+     Wipes: IndexedDB photos, sessionStorage (range choices),
+     events, holidays, captions, templates, compact settings. */
+  async function startFresh() {
+    const confirmed = confirm(
+      'This will clear ALL photos, events, holidays and settings — ' +
+      'like opening the app for the first time. Are you sure?'
+    );
+    if (!confirmed) return;
+
+    // Clear IndexedDB photos
+    try { await PhotoManager.clearAll(); } catch(e) {}
+
+    // Clear sessionStorage (range choices, pan locks)
+    sessionStorage.clear();
+
+    // Clear localStorage if anything was stored there
+    try { localStorage.clear(); } catch(e) {}
+
+    // Reload the page — everything starts fresh
+    window.location.reload();
   }
 
   return {
@@ -2189,7 +2228,7 @@ const App = (() => {
     setCaptions,setTemplates,setCompactGrids,
     setTemplate,onCaptionChange,onCompactChange,onRangeChange,
     exportJSON,triggerImportJSON,importJSON,loadHolidays,
-    clearAllPhotos,clearAllEvents,init
+    clearAllPhotos,clearAllEvents,startFresh,init
   };
 })();
 
