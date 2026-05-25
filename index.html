@@ -561,20 +561,132 @@
 
     /* ── PRINT ───────────────────────────────────────────────────── */
     @media print {
+      /* Force exact colour — photos, backgrounds, events */
       *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
-      body{background:#fff !important;margin:0;padding:0;}
+
+      /* Reset html/body — clears overflow:hidden and height:100% that
+         clip the grid on mobile Chrome print */
+      html{
+        height:auto !important;
+        overflow:visible !important;
+      }
+      body{
+        height:auto !important;
+        overflow:visible !important;
+        background:#fff !important;
+        margin:0; padding:0;
+        display:block !important;
+      }
+
+      /* Hide all UI chrome */
       header,.toolbar,.sidebar,.toast-container,.modal-backdrop,
       .drawer,.drawer-tab,.drawer-backdrop,.no-print{display:none !important;}
-      main{display:block;margin:0;padding:0;}
-      .preview-area{padding:0;display:block;overflow:visible;background:#fff;gap:0;}
+
+      /* Reset layout containers — block flow, no flex, no clipping */
+      main{
+        display:block !important;
+        height:auto !important;
+        overflow:visible !important;
+        margin:0; padding:0;
+      }
+      .preview-area{
+        display:block !important;
+        height:auto !important;
+        overflow:visible !important;
+        padding:0; background:#fff; gap:0;
+      }
       .cal-page-wrapper{display:block;width:100%;}
-      .cal-page{transform:none !important;width:210mm;height:297mm;box-shadow:none;border-radius:0;margin:0;padding:0;page-break-after:always;break-after:page;overflow:hidden;}
-      .cal-photo-area{height:126mm !important;}
-      .cal-caption{top:126mm !important;height:9mm !important;}
-      .cal-grid-area{top:135mm !important;}
-      .photo-placeholder{background:#f5f5f5 !important;cursor:default;}
-      .photo-placeholder .ph-icon,.photo-placeholder span,.photo-placeholder .ph-hint{display:none;}
+
+      /* Calendar page — clear mobile transform, fix to A4 */
+      .cal-page{
+        transform:none !important;
+        -webkit-transform:none !important;
+        width:210mm !important;
+        height:297mm !important;
+        position:relative !important;
+        display:block !important;
+        overflow:hidden !important;
+        box-shadow:none !important;
+        border-radius:0 !important;
+        margin:0 !important;
+        padding:0 !important;
+        page-break-after:always;
+        break-after:page;
+      }
+
+      /* Photo area — explicit mm height, immune to flex issues */
+      .cal-photo-area{
+        position:absolute !important;
+        top:0 !important; left:0 !important; right:0 !important;
+        height:126mm !important;
+        overflow:hidden !important;
+      }
+
+      /* Caption bar */
+      .cal-caption{
+        position:absolute !important;
+        top:126mm !important;
+        left:0 !important; right:0 !important;
+        height:9mm !important;
+        display:flex !important;
+        align-items:center !important;
+        overflow:hidden !important;
+      }
+
+      /* Grid area — explicit mm position and height.
+         Switch from flex to block so grid doesn't need a flex parent
+         to resolve its height. This fixes the blank grid on mobile. */
+      .cal-grid-area{
+        position:absolute !important;
+        top:135mm !important;
+        left:0 !important; right:0 !important;
+        bottom:0 !important;
+        height:162mm !important;
+        display:block !important;
+        overflow:hidden !important;
+        padding:10mm 8mm 6mm !important;
+      }
+
+      /* Month header and day-of-week row */
+      .cal-month-header{
+        display:flex !important;
+        margin-bottom:4mm !important;
+      }
+      .cal-dow-row{
+        display:grid !important;
+        grid-template-columns:repeat(7,1fr) !important;
+        margin-bottom:1mm !important;
+      }
+
+      /* Date grid — explicit height so it fills the grid area.
+         Using explicit mm height instead of flex:1 which collapses
+         when the flex parent chain is broken on mobile print. */
+      .cal-dates-grid{
+        display:grid !important;
+        grid-template-columns:repeat(7,1fr) !important;
+        width:100% !important;
+        height:130mm !important;
+        border-left:1px solid #e8e4dc !important;
+        border-top:1px solid #e8e4dc !important;
+      }
+
+      /* Date cells */
+      .cal-date-cell{
+        border-right:1px solid #e8e4dc !important;
+        border-bottom:1px solid #e8e4dc !important;
+        padding:2mm !important;
+        overflow:hidden !important;
+        vertical-align:top !important;
+      }
+      .cal-date-cell.empty{background:#fafafa !important;}
+
+      /* Hide placeholder elements */
+      .photo-placeholder{background:#f5f5f5 !important;cursor:default !important;}
+      .photo-placeholder *{display:none !important;}
       .pz-container{cursor:default !important;}
+
+      /* Slot controls hidden on print */
+      .slot-controls,.quality-warn,.pan-lock-btn{display:none !important;}
     }
   </style>
 </head>
