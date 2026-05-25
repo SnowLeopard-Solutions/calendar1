@@ -8,7 +8,7 @@
   <meta property="og:description" content="Make beautiful photo calendars to print at home. Add your photos, mark special dates and holidays, print on A4. Free, no account needed." />
   <meta property="og:type" content="website" />
   <meta name="theme-color" content="#1a1a1a" />
-  <title>Photo Calendar Print — v1.8.0</title>
+  <title>Photo Calendar Print — v1.8.2</title>
   <!--
     ============================================================
     CALENDAR GENERATOR
@@ -1238,96 +1238,133 @@
   <div class="splash-headline">Make your own photo calendar</div>
   <div class="splash-sub">Add your photos · Mark your special dates · Print at home on A4</div>
 
-  <!-- Three preview cards -->
+  <!-- Three layout template previews -->
   <div class="splash-cards">
 
-    <!-- Card 1: Your photo fills the month -->
+    <!-- Card 1: Full photo + caption example — June 2026 -->
     <div class="splash-card">
-      <div class="splash-card-photo grad1">
-        <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid slice">
-          <polygon points="0,120 60,55 120,120" fill="#1a3a1a" opacity="0.7"/>
-          <polygon points="80,120 150,40 220,120" fill="#1d4289" opacity="0.5"/>
-          <polygon points="160,120 220,65 280,120" fill="#2a5a2a" opacity="0.6"/>
-          <circle cx="240" cy="30" r="18" fill="#c8a96e" opacity="0.8"/>
-          <circle cx="240" cy="30" r="14" fill="#e8c98e" opacity="0.5"/>
-        </svg>
-      </div>
-      <div class="splash-card-grid">
-        <div class="splash-card-month">JUNE <span>2026</span></div>
-        <div class="splash-mini-dow">
-          <div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div>
+      <div style="font-size:0.68rem;color:#c8a96e;text-align:center;padding:8px 0 4px;letter-spacing:0.08em;text-transform:uppercase;">Full Photo</div>
+      <div style="margin:0 12px 10px;border:1px solid #333;border-radius:6px;overflow:hidden;background:#1a1a1a;">
+        <!-- Photo area -->
+        <div style="height:75px;background:linear-gradient(160deg,#1a3a5c 0%,#2d5a40 40%,#c8a96e 100%);position:relative;overflow:hidden;">
+          <svg viewBox="0 0 200 75" style="position:absolute;inset:0;width:100%;height:100%;" preserveAspectRatio="xMidYMid slice">
+            <polygon points="0,75 50,32 100,75" fill="#1a3a1a" opacity="0.6"/>
+            <polygon points="60,75 120,25 180,75" fill="#1d4289" opacity="0.4"/>
+            <circle cx="170" cy="16" r="11" fill="#c8a96e" opacity="0.75"/>
+          </svg>
         </div>
-        <div class="splash-mini-dates">
-          <div class="d-empty"></div><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div>
-          <div>7</div><div>8</div><div>9</div><div>10</div><div>11</div><div>12</div><div>13</div>
-          <div>14</div><div>15</div><div>16</div><div>17</div><div>18</div><div>19</div><div>20</div>
-          <div>21</div><div>22</div><div>23</div><div>24</div><div>25</div><div>26</div><div>27</div>
-          <div>28</div><div>29</div><div>30</div><div class="d-empty"></div><div class="d-empty"></div><div class="d-empty"></div><div class="d-empty"></div>
+        <!-- Caption bar -->
+        <div style="background:#f9f7f3;border-top:1px solid #e0dbd0;border-bottom:1px solid #e0dbd0;padding:3px 8px;text-align:center;font-size:0.42rem;color:#888;font-style:italic;">
+          Our trip to the Lake District
         </div>
-      </div>
-      <div class="splash-card-label">📷 Add your own photo to each month</div>
-    </div>
-
-    <!-- Card 2: Events on dates -->
-    <div class="splash-card">
-      <div class="splash-card-photo grad2">
-        <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid slice">
-          <rect x="0" y="0" width="280" height="120" fill="url(#g2)"/>
-          <defs>
-            <linearGradient id="g2" x1="0" y1="0" x2="280" y2="120" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#1a3a5c"/>
-              <stop offset="50%" stop-color="#2d7a6e"/>
-              <stop offset="100%" stop-color="#e8c98e"/>
-            </linearGradient>
-          </defs>
-          <ellipse cx="200" cy="80" rx="60" ry="40" fill="#1d4289" opacity="0.3"/>
-          <polygon points="20,120 70,50 120,120" fill="#2a5a2a" opacity="0.6"/>
-          <circle cx="230" cy="25" r="14" fill="#c8a96e" opacity="0.6"/>
-        </svg>
-      </div>
-      <div class="splash-card-grid">
-        <div class="splash-card-month">AUGUST <span>2026</span></div>
-        <div class="splash-mini-dow">
-          <div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div>
-        </div>
-        <div class="splash-mini-dates">
-          <div class="d-empty"></div><div class="d-empty"></div><div class="d-empty"></div><div class="d-empty"></div><div class="d-empty"></div><div>1</div><div>2</div>
-          <div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div>
-          <div>10</div><div>11</div><div>12</div><div>13</div><div>14</div><div>15</div><div>16</div>
-          <div>17</div><div>18</div><div>19</div><div>20</div><div>21</div><div>22</div><div>23</div>
-          <div class="d-event" style="grid-column:span 7;text-align:left;padding:1px 2px;">🌴 Family Holiday</div>
-          <div>31</div><div class="d-empty"></div><div class="d-empty"></div><div class="d-empty"></div><div class="d-holiday" style="grid-column:span 3;text-align:left;padding:1px 2px;">Bank Holiday</div>
-        </div>
-      </div>
-      <div class="splash-card-label">📅 Mark holidays and special events on your dates</div>
-    </div>
-
-    <!-- Card 3: Multiple months / print -->
-    <div class="splash-card">
-      <div class="splash-stacked">
-        <div class="splash-stack-page p3"></div>
-        <div class="splash-stack-page p2"></div>
-        <div class="splash-stack-page p1">
-          <div class="sp-photo"></div>
-          <div class="sp-grid">
-            <div></div><div></div><div></div><div></div><div></div><div></div><div></div>
-            <div></div><div></div><div></div><div></div><div></div><div></div><div></div>
-            <div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+        <!-- Calendar grid -->
+        <div style="padding:6px 8px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:0.62rem;color:#e8e4dc;letter-spacing:0.08em;">JUNE</span>
+            <span style="font-size:0.55rem;color:#555;">2026</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin-bottom:2px;">
+            <div style="text-align:center;font-size:0.36rem;color:#444;">M</div><div style="text-align:center;font-size:0.36rem;color:#444;">T</div><div style="text-align:center;font-size:0.36rem;color:#444;">W</div><div style="text-align:center;font-size:0.36rem;color:#444;">T</div><div style="text-align:center;font-size:0.36rem;color:#444;">F</div><div style="text-align:center;font-size:0.36rem;color:#444;">S</div><div style="text-align:center;font-size:0.36rem;color:#444;">S</div>
+          </div>
+          <!-- June 2026: starts Monday -->
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;">
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">1</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">2</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">3</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">4</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">5</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">6</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">7</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">8</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">9</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">10</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">11</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">12</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">13</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">14</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">15</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">16</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">17</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">18</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">19</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">20</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">21</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">22</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">23</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">24</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">25</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">26</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">27</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">28</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">29</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">30</div><div style="font-size:0.38rem;color:#444;padding:1px 0;"></div><div style="font-size:0.38rem;color:#444;padding:1px 0;"></div><div style="font-size:0.38rem;color:#444;padding:1px 0;"></div><div style="font-size:0.38rem;color:#444;padding:1px 0;"></div><div style="font-size:0.38rem;color:#444;padding:1px 0;"></div>
           </div>
         </div>
       </div>
-      <div class="splash-card-grid">
-        <div class="splash-card-month">JAN — DEC <span>2026</span></div>
-        <div style="font-size:0.62rem;color:#666;line-height:1.5;margin-top:4px;">
-          Print one month or a full year.<br/>
-          Each page is A4 — ready for your printer or photo paper.
+      <div class="splash-card-label">Add a caption — a quote or note about the month</div>
+    </div>
+
+    <!-- Card 2: 1+2 split photo — July 2026, no events -->
+    <div class="splash-card">
+      <div style="font-size:0.68rem;color:#c8a96e;text-align:center;padding:8px 0 4px;letter-spacing:0.08em;text-transform:uppercase;">Main + 2 Photos</div>
+      <div style="margin:0 12px 10px;border:1px solid #333;border-radius:6px;overflow:hidden;background:#1a1a1a;">
+        <!-- Split: main left 2/3 + 2 stacked right 1/3 -->
+        <div style="height:75px;display:grid;grid-template-columns:2fr 1fr;gap:1px;background:#333;">
+          <div style="background:linear-gradient(160deg,#1d4289 0%,#2d7a6e 55%,#c8a96e 100%);position:relative;overflow:hidden;">
+            <svg viewBox="0 0 130 75" style="position:absolute;inset:0;width:100%;height:100%;" preserveAspectRatio="xMidYMid slice">
+              <polygon points="0,75 45,28 90,75" fill="#1a3a1a" opacity="0.5"/>
+              <circle cx="108" cy="14" r="10" fill="#c8a96e" opacity="0.65"/>
+            </svg>
+          </div>
+          <div style="display:grid;grid-template-rows:1fr 1fr;gap:1px;">
+            <div style="background:linear-gradient(135deg,#2d5a27,#8b6914);"></div>
+            <div style="background:linear-gradient(135deg,#5c2d1a,#1d4289);"></div>
+          </div>
+        </div>
+        <!-- Grid — July 2026 starts Wednesday -->
+        <div style="padding:6px 8px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:0.62rem;color:#e8e4dc;letter-spacing:0.08em;">JULY</span>
+            <span style="font-size:0.55rem;color:#555;">2026</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin-bottom:2px;">
+            <div style="text-align:center;font-size:0.36rem;color:#444;">M</div><div style="text-align:center;font-size:0.36rem;color:#444;">T</div><div style="text-align:center;font-size:0.36rem;color:#444;">W</div><div style="text-align:center;font-size:0.36rem;color:#444;">T</div><div style="text-align:center;font-size:0.36rem;color:#444;">F</div><div style="text-align:center;font-size:0.36rem;color:#444;">S</div><div style="text-align:center;font-size:0.36rem;color:#444;">S</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;">
+            <div style="font-size:0.38rem;color:#444;padding:1px 0;"></div><div style="font-size:0.38rem;color:#444;padding:1px 0;"></div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">1</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">2</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">3</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">4</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">5</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">6</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">7</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">8</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">9</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">10</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">11</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">12</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">13</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">14</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">15</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">16</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">17</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">18</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">19</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">20</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">21</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">22</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">23</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">24</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">25</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">26</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">27</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">28</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">29</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">30</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">31</div><div style="font-size:0.38rem;color:#444;padding:1px 0;"></div><div style="font-size:0.38rem;color:#444;padding:1px 0;"></div>
+          </div>
         </div>
       </div>
-      <div class="splash-card-label">🖨 Print at home — one month or the whole year</div>
+      <div class="splash-card-label">One main photo plus two smaller ones side by side</div>
+    </div>
+
+    <!-- Card 3: 1+3 split — August 2026 with events -->
+    <div class="splash-card">
+      <div style="font-size:0.68rem;color:#c8a96e;text-align:center;padding:8px 0 4px;letter-spacing:0.08em;text-transform:uppercase;">Main + 3 Photos</div>
+      <div style="margin:0 12px 10px;border:1px solid #333;border-radius:6px;overflow:hidden;background:#1a1a1a;">
+        <!-- Split: main left 2/3 + 3 stacked right 1/3 -->
+        <div style="height:75px;display:grid;grid-template-columns:2fr 1fr;gap:1px;background:#333;">
+          <div style="background:linear-gradient(160deg,#5c2d1a 0%,#8b6914 50%,#e8c98e 100%);position:relative;overflow:hidden;">
+            <svg viewBox="0 0 130 75" style="position:absolute;inset:0;width:100%;height:100%;" preserveAspectRatio="xMidYMid slice">
+              <polygon points="10,75 50,22 90,75" fill="#2a1a0a" opacity="0.5"/>
+              <circle cx="108" cy="16" r="9" fill="#e8c98e" opacity="0.7"/>
+            </svg>
+          </div>
+          <div style="display:grid;grid-template-rows:1fr 1fr 1fr;gap:1px;">
+            <div style="background:linear-gradient(135deg,#1a3a5c,#2d7a6e);"></div>
+            <div style="background:linear-gradient(135deg,#2d5a27,#1d4289);"></div>
+            <div style="background:linear-gradient(135deg,#5c1a2d,#8b6914);"></div>
+          </div>
+        </div>
+        <!-- Grid — August 2026 starts Saturday -->
+        <div style="padding:6px 8px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:0.62rem;color:#e8e4dc;letter-spacing:0.08em;">AUGUST</span>
+            <span style="font-size:0.55rem;color:#555;">2026</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin-bottom:2px;">
+            <div style="text-align:center;font-size:0.36rem;color:#444;">M</div><div style="text-align:center;font-size:0.36rem;color:#444;">T</div><div style="text-align:center;font-size:0.36rem;color:#444;">W</div><div style="text-align:center;font-size:0.36rem;color:#444;">T</div><div style="text-align:center;font-size:0.36rem;color:#444;">F</div><div style="text-align:center;font-size:0.36rem;color:#444;">S</div><div style="text-align:center;font-size:0.36rem;color:#444;">S</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;">
+            <div style="font-size:0.38rem;color:#444;padding:1px 0;"></div><div style="font-size:0.38rem;color:#444;padding:1px 0;"></div><div style="font-size:0.38rem;color:#444;padding:1px 0;"></div><div style="font-size:0.38rem;color:#444;padding:1px 0;"></div><div style="font-size:0.38rem;color:#444;padding:1px 0;"></div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">1</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">2</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">3</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">4</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">5</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">6</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">7</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">8</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">9</div>
+            <!-- Family Holiday Mon-Thu 10-13 -->
+            <div style="font-size:0.3rem;background:#8b6914;color:#fff;padding:1px;border-radius:1px;text-align:center;">🌴10</div><div style="font-size:0.3rem;background:#8b6914;color:#fff;padding:1px;border-radius:1px;text-align:center;">11</div><div style="font-size:0.3rem;background:#8b6914;color:#fff;padding:1px;border-radius:1px;text-align:center;">12</div><div style="font-size:0.3rem;background:#8b6914;color:#fff;padding:1px;border-radius:1px;text-align:center;">13</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">14</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">15</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">16</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">17</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">18</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">19</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">20</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">21</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">22</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">23</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">24</div>
+            <!-- Bank Holiday Mon 25 Aug only -->
+            <div style="font-size:0.3rem;background:#1d4289;color:#fff;padding:1px;border-radius:1px;text-align:center;">BH</div>
+            <div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">26</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">27</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">28</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">29</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">30</div><div style="text-align:center;font-size:0.38rem;color:#777;padding:1px 0;">31</div>
+          </div>
+        </div>
+      </div>
+      <div class="splash-card-label">Add holidays and special events to any date</div>
     </div>
 
   </div>
 
+  <!-- Three steps -->
+  <!-- Three steps -->
   <!-- Three steps -->
   <div class="splash-steps">
     <div class="splash-step">
@@ -1420,7 +1457,7 @@ const UI = (() => {
    MODULE 1: CONFIG
 ============================================================ */
 const CONFIG = {
-  version:'1.8.0', yearMin:2020, yearMax:2035,
+  version:'1.8.2', yearMin:2020, yearMax:2035,
   defaultYear:new Date().getFullYear(), defaultMonth:new Date().getMonth(),
   defaultCount:1, dbName:'CalendarGeneratorDB', dbVersion:2, dbStore:'photos',
   maxCaptionLen:200, maxEventLen:60, printDPI:300, printWarnDPI:200,
