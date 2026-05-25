@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Calendar Generator — v1.7.1</title>
+  <meta name="description" content="Make beautiful photo calendars to print at home. Add your own photos, mark special dates and UK holidays, print on A4. Free, no account needed, works in Chrome." />
+  <meta property="og:title" content="Photo Calendar Print" />
+  <meta property="og:description" content="Make beautiful photo calendars to print at home. Add your photos, mark special dates and holidays, print on A4. Free, no account needed." />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#1a1a1a" />
+  <title>Photo Calendar Print — v1.8.0</title>
   <!--
     ============================================================
     CALENDAR GENERATOR
@@ -548,6 +553,167 @@
       .drawer-backdrop { display:none; }
     }
 
+    /* ── SPLASH SCREEN ──────────────────────────────────────────────── */
+    .splash-overlay {
+      position: fixed; inset: 0; z-index: 9000;
+      background: #0a0a0a;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-start;
+      overflow-y: auto; padding: 32px 20px 40px;
+    }
+    .splash-logo { margin-bottom: 18px; }
+    .splash-logo svg { width: 160px; height: auto; }
+
+    .splash-headline {
+      text-align: center; margin-bottom: 6px;
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      color: var(--accent); letter-spacing: 0.04em;
+      font-weight: normal;
+    }
+    .splash-sub {
+      text-align: center; font-size: clamp(0.82rem, 2.5vw, 0.95rem);
+      color: var(--text-muted); margin-bottom: 28px; letter-spacing: 0.02em;
+    }
+
+    /* Three preview cards */
+    .splash-cards {
+      display: flex; gap: 16px; justify-content: center;
+      flex-wrap: wrap; width: 100%; max-width: 860px; margin-bottom: 28px;
+    }
+    .splash-card {
+      background: #1a1a1a; border: 1px solid #2e2e2e;
+      border-radius: 12px; overflow: hidden;
+      flex: 1; min-width: 220px; max-width: 280px;
+      display: flex; flex-direction: column;
+    }
+    /* Mini calendar photo area */
+    .splash-card-photo {
+      height: 120px; position: relative; overflow: hidden;
+    }
+    .splash-card-photo.grad1 {
+      background: linear-gradient(135deg, #2d5a27 0%, #1d4289 40%, #c8a96e 100%);
+    }
+    .splash-card-photo.grad2 {
+      background: linear-gradient(135deg, #1a3a5c 0%, #2d7a6e 50%, #e8c98e 100%);
+    }
+    .splash-card-photo.grad3 {
+      background: linear-gradient(135deg, #5c2d1a 0%, #8b6914 50%, #c8a96e 100%);
+    }
+    /* Simulated photo mountain scene */
+    .splash-card-photo svg { width: 100%; height: 100%; }
+
+    /* Mini calendar grid inside card */
+    .splash-card-grid {
+      padding: 10px 10px 12px; flex: 1;
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .splash-card-month {
+      font-size: 0.75rem; letter-spacing: 0.1em;
+      text-transform: uppercase; color: #e8e4dc;
+      display: flex; justify-content: space-between; align-items: baseline;
+    }
+    .splash-card-month span { font-size: 0.6rem; color: #666; }
+    .splash-mini-dow {
+      display: grid; grid-template-columns: repeat(7,1fr);
+      gap: 1px; margin-bottom: 2px;
+    }
+    .splash-mini-dow div { text-align: center; font-size: 0.42rem; color: #555; }
+    .splash-mini-dates {
+      display: grid; grid-template-columns: repeat(7,1fr); gap: 1px;
+    }
+    .splash-mini-dates div {
+      text-align: center; font-size: 0.5rem; color: #777;
+      padding: 2px 0; border-radius: 2px;
+    }
+    .splash-mini-dates div.d-empty { color: transparent; }
+    .splash-mini-dates div.d-holiday {
+      background: #1d4289; color: #fff; font-size: 0.38rem;
+      padding: 1px; border-radius: 2px; line-height: 1.4;
+    }
+    .splash-mini-dates div.d-event {
+      background: #8b6914; color: #fff; font-size: 0.38rem;
+      padding: 1px; border-radius: 2px; line-height: 1.4;
+    }
+    .splash-mini-dates div.d-today {
+      background: #333; color: #fff; border-radius: 50%;
+      width: 14px; height: 14px; display: inline-flex;
+      align-items: center; justify-content: center; margin: 0 auto;
+    }
+
+    .splash-card-label {
+      padding: 8px 10px; font-size: 0.7rem; color: #666;
+      border-top: 1px solid #2e2e2e; text-align: center;
+      line-height: 1.4;
+    }
+
+    /* Stacked pages effect for card 3 */
+    .splash-stacked {
+      position: relative; height: 120px;
+    }
+    .splash-stack-page {
+      position: absolute; border-radius: 4px; overflow: hidden;
+    }
+    .splash-stack-page.p3 {
+      width: 85%; height: 90px; top: 12px; left: 8%;
+      background: #1a1a1a; border: 1px solid #333; opacity: 0.5;
+    }
+    .splash-stack-page.p2 {
+      width: 90%; height: 95px; top: 6px; left: 5%;
+      background: #1a1a1a; border: 1px solid #333; opacity: 0.7;
+    }
+    .splash-stack-page.p1 {
+      width: 95%; height: 100px; top: 0; left: 2.5%;
+      background: linear-gradient(135deg,#1d3a5c 0%,#2d5a40 100%);
+      border: 1px solid #c8a96e; opacity: 1;
+      display: flex; flex-direction: column;
+    }
+    .splash-stack-page.p1 .sp-photo {
+      flex: 0 0 60px; background: linear-gradient(135deg,#1d3a5c,#c8a96e);
+    }
+    .splash-stack-page.p1 .sp-grid {
+      flex: 1; display: grid; grid-template-columns: repeat(7,1fr);
+      gap: 1px; padding: 3px; background: #1a1a1a;
+    }
+    .splash-stack-page.p1 .sp-grid div {
+      background: #222; border-radius: 1px;
+    }
+
+    /* Three steps */
+    .splash-steps {
+      display: flex; gap: 12px; justify-content: center;
+      flex-wrap: wrap; max-width: 680px; margin-bottom: 28px; width: 100%;
+    }
+    .splash-step {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; flex: 1; min-width: 140px; max-width: 200px;
+      text-align: center;
+    }
+    .splash-step .step-icon {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: #1a1a1a; border: 1px solid #c8a96e;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+    }
+    .splash-step .step-title { font-size: 0.8rem; color: #e8e4dc; }
+    .splash-step .step-desc  { font-size: 0.68rem; color: #666; line-height: 1.4; }
+
+    /* CTA button */
+    .splash-cta {
+      background: var(--accent); border: none; color: #111;
+      padding: 14px 40px; border-radius: 10px;
+      font-family: var(--font-ui); font-size: 1rem; font-weight: bold;
+      cursor: pointer; letter-spacing: 0.05em;
+      transition: background 0.2s, transform 0.15s;
+      margin-bottom: 16px;
+    }
+    .splash-cta:hover { background: var(--accent2); transform: translateY(-1px); }
+
+    .splash-footer {
+      font-size: 0.68rem; color: #444; letter-spacing: 0.06em;
+    }
+
+    @media print { .splash-overlay { display: none !important; } }
+
     /* ── UTILITIES ───────────────────────────────────────────────── */
     .hidden { display:none !important; }
     .flex-gap { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
@@ -697,10 +863,48 @@
 ============================================================ -->
 <header class="no-print">
   <div class="branding">
-    <img id="brandLogo" src="" alt="Logo" />
-    <div>
-      <div id="brandTitle" title="Click to rename" onclick="BrandingManager.editTitle()">Calendar Generator</div>
-      <div class="brand-sub">v1.7.1 &mdash; Chrome Print Edition</div>
+    <!-- SVG Logo: Photo → Calendar → Print -->
+    <svg id="appLogo" width="120" height="34" viewBox="0 0 120 34" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+      <!-- Photo frame -->
+      <rect x="1" y="3" width="22" height="18" rx="2" stroke="#c8a96e" stroke-width="1.5" fill="#1a1a1a"/>
+      <!-- Mountain scene inside photo -->
+      <polygon points="4,18 9,10 14,18" fill="#2a4a2a" opacity="0.7"/>
+      <polygon points="10,18 15,12 20,18" fill="#1d4289" opacity="0.5"/>
+      <!-- Sun -->
+      <circle cx="18" cy="8" r="2.5" fill="#c8a96e" opacity="0.9"/>
+      <!-- Arrow 1 -->
+      <path d="M26 12 L32 12 M29 9 L32 12 L29 15" stroke="#c8a96e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- Calendar -->
+      <rect x="34" y="3" width="22" height="18" rx="2" stroke="#c8a96e" stroke-width="1.5" fill="#1a1a1a"/>
+      <!-- Calendar top bar -->
+      <rect x="34" y="3" width="22" height="5" rx="2" fill="#c8a96e" opacity="0.3"/>
+      <!-- Calendar binding lines -->
+      <line x1="40" y1="1.5" x2="40" y2="5.5" stroke="#c8a96e" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="50" y1="1.5" x2="50" y2="5.5" stroke="#c8a96e" stroke-width="1.5" stroke-linecap="round"/>
+      <!-- Calendar grid dots -->
+      <rect x="37" y="11" width="3" height="2.5" rx="0.5" fill="#555"/>
+      <rect x="42" y="11" width="3" height="2.5" rx="0.5" fill="#555"/>
+      <rect x="47" y="11" width="3" height="2.5" rx="0.5" fill="#c8a96e"/>
+      <rect x="37" y="15" width="3" height="2.5" rx="0.5" fill="#555"/>
+      <rect x="42" y="15" width="3" height="2.5" rx="0.5" fill="#555"/>
+      <rect x="47" y="15" width="3" height="2.5" rx="0.5" fill="#555"/>
+      <!-- Arrow 2 -->
+      <path d="M59 12 L65 12 M62 9 L65 12 L62 15" stroke="#c8a96e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- Printer body -->
+      <rect x="67" y="8" width="22" height="13" rx="2" stroke="#c8a96e" stroke-width="1.5" fill="#1a1a1a"/>
+      <!-- Printer top slot (paper in) -->
+      <rect x="71" y="3" width="14" height="7" rx="1" stroke="#c8a96e" stroke-width="1.2" fill="#242424"/>
+      <!-- Printer paper coming out -->
+      <rect x="71" y="17" width="14" height="7" rx="1" stroke="#c8a96e" stroke-width="1.2" fill="#f9f7f3"/>
+      <!-- Lines on paper -->
+      <line x1="73" y1="20" x2="83" y2="20" stroke="#c8a96e" stroke-width="0.8" opacity="0.7"/>
+      <line x1="73" y1="22" x2="80" y2="22" stroke="#c8a96e" stroke-width="0.8" opacity="0.5"/>
+      <!-- Printer light -->
+      <circle cx="83" cy="13" r="1.5" fill="#c8a96e" opacity="0.8"/>
+    </svg>
+    <div style="display:flex;flex-direction:column;margin-left:8px;">
+      <div style="font-size:1.05rem;letter-spacing:0.08em;color:var(--accent);text-transform:uppercase;font-weight:normal;line-height:1.1;">Photo Calendar Print</div>
+      <div class="brand-sub">Photo · Calendar · Print</div>
     </div>
   </div>
 
@@ -880,7 +1084,6 @@
           <span class="accordion-chevron">▼</span>
         </div>
         <div class="accordion-body">
-          <button onclick="BrandingManager.editTitle()" class="ghost w100">✏ Rename calendar</button>
           <button onclick="BrandingManager.triggerLogoUpload()" class="ghost w100">🖼 Upload logo</button>
           <button onclick="BrandingManager.removeLogo()" class="ghost w100">Remove logo</button>
           <div style="height:1px;background:var(--border);"></div>
@@ -980,7 +1183,6 @@
         <button class="theme-btn" onclick="BrandingManager.toggleTheme()" id="mThemeBtn">☀ Light</button>
       </div>
       <div class="mobile-row" style="margin-top:5px;">
-        <button onclick="BrandingManager.editTitle()">Rename</button>
         <button onclick="App.clearAllPhotos()" class="danger">Clear Photos</button>
         <button onclick="App.startFresh()" class="danger">🔄 Start Fresh</button>
       </div>
@@ -999,6 +1201,158 @@
 </div>
 
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- ============================================================
+     SPLASH SCREEN — shown once per session on first load
+============================================================ -->
+<div class="splash-overlay" id="splashOverlay">
+
+  <!-- Logo large -->
+  <div class="splash-logo">
+    <svg width="200" height="56" viewBox="0 0 120 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1" y="3" width="22" height="18" rx="2" stroke="#c8a96e" stroke-width="1.5" fill="#1a1a1a"/>
+      <polygon points="4,18 9,10 14,18" fill="#2a4a2a" opacity="0.8"/>
+      <polygon points="10,18 15,12 20,18" fill="#1d4289" opacity="0.6"/>
+      <circle cx="18" cy="8" r="2.5" fill="#c8a96e" opacity="0.9"/>
+      <path d="M26 12 L32 12 M29 9 L32 12 L29 15" stroke="#c8a96e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="34" y="3" width="22" height="18" rx="2" stroke="#c8a96e" stroke-width="1.5" fill="#1a1a1a"/>
+      <rect x="34" y="3" width="22" height="5" rx="2" fill="#c8a96e" opacity="0.3"/>
+      <line x1="40" y1="1.5" x2="40" y2="5.5" stroke="#c8a96e" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="50" y1="1.5" x2="50" y2="5.5" stroke="#c8a96e" stroke-width="1.5" stroke-linecap="round"/>
+      <rect x="37" y="11" width="3" height="2.5" rx="0.5" fill="#555"/>
+      <rect x="42" y="11" width="3" height="2.5" rx="0.5" fill="#555"/>
+      <rect x="47" y="11" width="3" height="2.5" rx="0.5" fill="#c8a96e"/>
+      <rect x="37" y="15" width="3" height="2.5" rx="0.5" fill="#555"/>
+      <rect x="42" y="15" width="3" height="2.5" rx="0.5" fill="#555"/>
+      <rect x="47" y="15" width="3" height="2.5" rx="0.5" fill="#555"/>
+      <path d="M59 12 L65 12 M62 9 L65 12 L62 15" stroke="#c8a96e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="67" y="8" width="22" height="13" rx="2" stroke="#c8a96e" stroke-width="1.5" fill="#1a1a1a"/>
+      <rect x="71" y="3" width="14" height="7" rx="1" stroke="#c8a96e" stroke-width="1.2" fill="#242424"/>
+      <rect x="71" y="17" width="14" height="7" rx="1" stroke="#c8a96e" stroke-width="1.2" fill="#f9f7f3"/>
+      <line x1="73" y1="20" x2="83" y2="20" stroke="#c8a96e" stroke-width="0.8" opacity="0.7"/>
+      <line x1="73" y1="22" x2="80" y2="22" stroke="#c8a96e" stroke-width="0.8" opacity="0.5"/>
+      <circle cx="83" cy="13" r="1.5" fill="#c8a96e" opacity="0.8"/>
+    </svg>
+  </div>
+
+  <div class="splash-headline">Make your own photo calendar</div>
+  <div class="splash-sub">Add your photos · Mark your special dates · Print at home on A4</div>
+
+  <!-- Three preview cards -->
+  <div class="splash-cards">
+
+    <!-- Card 1: Your photo fills the month -->
+    <div class="splash-card">
+      <div class="splash-card-photo grad1">
+        <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid slice">
+          <polygon points="0,120 60,55 120,120" fill="#1a3a1a" opacity="0.7"/>
+          <polygon points="80,120 150,40 220,120" fill="#1d4289" opacity="0.5"/>
+          <polygon points="160,120 220,65 280,120" fill="#2a5a2a" opacity="0.6"/>
+          <circle cx="240" cy="30" r="18" fill="#c8a96e" opacity="0.8"/>
+          <circle cx="240" cy="30" r="14" fill="#e8c98e" opacity="0.5"/>
+        </svg>
+      </div>
+      <div class="splash-card-grid">
+        <div class="splash-card-month">JUNE <span>2026</span></div>
+        <div class="splash-mini-dow">
+          <div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div>
+        </div>
+        <div class="splash-mini-dates">
+          <div class="d-empty"></div><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div>
+          <div>7</div><div>8</div><div>9</div><div>10</div><div>11</div><div>12</div><div>13</div>
+          <div>14</div><div>15</div><div>16</div><div>17</div><div>18</div><div>19</div><div>20</div>
+          <div>21</div><div>22</div><div>23</div><div>24</div><div>25</div><div>26</div><div>27</div>
+          <div>28</div><div>29</div><div>30</div><div class="d-empty"></div><div class="d-empty"></div><div class="d-empty"></div><div class="d-empty"></div>
+        </div>
+      </div>
+      <div class="splash-card-label">📷 Add your own photo to each month</div>
+    </div>
+
+    <!-- Card 2: Events on dates -->
+    <div class="splash-card">
+      <div class="splash-card-photo grad2">
+        <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid slice">
+          <rect x="0" y="0" width="280" height="120" fill="url(#g2)"/>
+          <defs>
+            <linearGradient id="g2" x1="0" y1="0" x2="280" y2="120" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#1a3a5c"/>
+              <stop offset="50%" stop-color="#2d7a6e"/>
+              <stop offset="100%" stop-color="#e8c98e"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="200" cy="80" rx="60" ry="40" fill="#1d4289" opacity="0.3"/>
+          <polygon points="20,120 70,50 120,120" fill="#2a5a2a" opacity="0.6"/>
+          <circle cx="230" cy="25" r="14" fill="#c8a96e" opacity="0.6"/>
+        </svg>
+      </div>
+      <div class="splash-card-grid">
+        <div class="splash-card-month">AUGUST <span>2026</span></div>
+        <div class="splash-mini-dow">
+          <div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div>
+        </div>
+        <div class="splash-mini-dates">
+          <div class="d-empty"></div><div class="d-empty"></div><div class="d-empty"></div><div class="d-empty"></div><div class="d-empty"></div><div>1</div><div>2</div>
+          <div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div>
+          <div>10</div><div>11</div><div>12</div><div>13</div><div>14</div><div>15</div><div>16</div>
+          <div>17</div><div>18</div><div>19</div><div>20</div><div>21</div><div>22</div><div>23</div>
+          <div class="d-event" style="grid-column:span 7;text-align:left;padding:1px 2px;">🌴 Family Holiday</div>
+          <div>31</div><div class="d-empty"></div><div class="d-empty"></div><div class="d-empty"></div><div class="d-holiday" style="grid-column:span 3;text-align:left;padding:1px 2px;">Bank Holiday</div>
+        </div>
+      </div>
+      <div class="splash-card-label">📅 Mark holidays and special events on your dates</div>
+    </div>
+
+    <!-- Card 3: Multiple months / print -->
+    <div class="splash-card">
+      <div class="splash-stacked">
+        <div class="splash-stack-page p3"></div>
+        <div class="splash-stack-page p2"></div>
+        <div class="splash-stack-page p1">
+          <div class="sp-photo"></div>
+          <div class="sp-grid">
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+          </div>
+        </div>
+      </div>
+      <div class="splash-card-grid">
+        <div class="splash-card-month">JAN — DEC <span>2026</span></div>
+        <div style="font-size:0.62rem;color:#666;line-height:1.5;margin-top:4px;">
+          Print one month or a full year.<br/>
+          Each page is A4 — ready for your printer or photo paper.
+        </div>
+      </div>
+      <div class="splash-card-label">🖨 Print at home — one month or the whole year</div>
+    </div>
+
+  </div>
+
+  <!-- Three steps -->
+  <div class="splash-steps">
+    <div class="splash-step">
+      <div class="step-icon">📷</div>
+      <div class="step-title">Choose your photos</div>
+      <div class="step-desc">One photo per month — or mix layouts with 2 or 3 photos</div>
+    </div>
+    <div class="splash-step">
+      <div class="step-icon">📅</div>
+      <div class="step-title">Add your dates</div>
+      <div class="step-desc">Mark holidays, family events and special occasions</div>
+    </div>
+    <div class="splash-step">
+      <div class="step-icon">🖨</div>
+      <div class="step-title">Print at home</div>
+      <div class="step-desc">A4 paper or photo paper — looks great on any printer</div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <button class="splash-cta" onclick="Splash.dismiss()">Let's Make a Calendar →</button>
+
+  <div class="splash-footer">Free &nbsp;·&nbsp; No account needed &nbsp;·&nbsp; Works in Chrome</div>
+
+</div>
 
 <script>
 'use strict';
@@ -1066,7 +1420,7 @@ const UI = (() => {
    MODULE 1: CONFIG
 ============================================================ */
 const CONFIG = {
-  version:'1.7.1', yearMin:2020, yearMax:2035,
+  version:'1.8.0', yearMin:2020, yearMax:2035,
   defaultYear:new Date().getFullYear(), defaultMonth:new Date().getMonth(),
   defaultCount:1, dbName:'CalendarGeneratorDB', dbVersion:2, dbStore:'photos',
   maxCaptionLen:200, maxEventLen:60, printDPI:300, printWarnDPI:200,
@@ -1418,9 +1772,9 @@ const FontManager = (() => {
    MODULE 10: BrandingManager
 ============================================================ */
 const BrandingManager = (() => {
-  let isDark=true,logoDataURL=null,title='Calendar Generator';
+  let isDark=true,logoDataURL=null,title='Photo Calendar Print';
   function toggleTheme(){isDark=!isDark;document.body.setAttribute('data-theme',isDark?'dark':'light');const t=isDark?'☀ Light Mode':'🌙 Dark Mode';document.getElementById('themeBtn').textContent=t;const mb=document.getElementById('mThemeBtn');if(mb)mb.textContent=isDark?'☀ Light':'🌙 Dark';}
-  function editTitle(){const v=prompt('Enter calendar title:',document.getElementById('brandTitle').textContent);if(v===null)return;title=v.trim().slice(0,60)||'Calendar Generator';document.getElementById('brandTitle').textContent=title;document.title=title+' — v'+CONFIG.version;}
+  function editTitle(){const v=prompt('Enter calendar title:',document.getElementById('brandTitle').textContent);if(v===null)return;title=v.trim().slice(0,60)||'Photo Calendar Print';document.getElementById('brandTitle').textContent=title;document.title=title+' — v'+CONFIG.version;}
   function triggerLogoUpload(){document.getElementById('logoInput').click();}
   function loadLogo(ev){const f=ev.target.files[0];if(!f)return;if(!f.type.startsWith('image/')){Toast.show('Select an image file.','error');return;}const r=new FileReader();r.onload=e=>{logoDataURL=e.target.result;const img=document.getElementById('brandLogo');img.src=logoDataURL;img.classList.add('visible');Toast.show('Logo uploaded.','success');};r.readAsDataURL(f);ev.target.value='';}
   function removeLogo(){logoDataURL=null;const img=document.getElementById('brandLogo');img.src='';img.classList.remove('visible');}
@@ -2325,7 +2679,7 @@ const App = (() => {
     // Clear IndexedDB photos
     try { await PhotoManager.clearAll(); } catch(e) {}
 
-    // Clear sessionStorage (range choices, pan locks)
+    // Clear sessionStorage (range choices, pan locks, splash seen flag)
     sessionStorage.clear();
 
     // Clear localStorage if anything was stored there
@@ -2344,8 +2698,42 @@ const App = (() => {
   };
 })();
 
+/* ============================================================
+   MODULE: Splash
+   Shows the welcome screen once per session.
+   Dismissed by clicking the CTA button.
+   Start Fresh resets it via sessionStorage.clear().
+============================================================ */
+const Splash = (() => {
+
+  function show() {
+    const el = document.getElementById('splashOverlay');
+    if (!el) return;
+    // Already seen this session — hide immediately
+    if (sessionStorage.getItem('splash_seen')) {
+      el.style.display = 'none';
+      return;
+    }
+    // Show — it's visible by default in HTML
+  }
+
+  function dismiss() {
+    sessionStorage.setItem('splash_seen', '1');
+    const el = document.getElementById('splashOverlay');
+    if (!el) return;
+    el.style.transition = 'opacity 0.4s ease';
+    el.style.opacity = '0';
+    setTimeout(() => { el.style.display = 'none'; }, 420);
+  }
+
+  return { show, dismiss };
+})();
+
 /* Boot */
-document.addEventListener('DOMContentLoaded',()=>App.init());
+document.addEventListener('DOMContentLoaded', () => {
+  Splash.show();
+  App.init();
+});
 </script>
 </body>
 </html>
